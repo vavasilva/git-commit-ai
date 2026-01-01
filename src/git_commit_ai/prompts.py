@@ -2,31 +2,43 @@
 
 import re
 
-KARMA_PROMPT = """Create a git commit message following Karma convention.
+KARMA_PROMPT = """Analyze the git diff below and create a commit message following Karma convention.
 
 FORMAT: <type>(<scope>): <subject>
 
-TYPES (lowercase):
-- feat: new feature
+TYPES (use the most appropriate):
+- feat: new feature or capability
 - fix: bug fix
-- docs: documentation
-- style: formatting, no code change
-- refactor: code restructuring
-- test: adding tests
-- build: build system or dependencies
+- docs: documentation changes (README, comments, docstrings)
+- style: formatting only (whitespace, semicolons)
+- refactor: code change that neither fixes bug nor adds feature
+- test: adding or modifying tests
+- build: build system, dependencies, package config
+- chore: maintenance tasks
 
 RULES:
-- Scope is optional (module or component affected)
-- Subject: imperative mood, lowercase, no period, max 72 chars
-- Example: feat(auth): add login validation
+- Scope is optional - use the main file/module name if relevant
+- Subject must describe WHAT changed in the diff, not a generic message
+- Use imperative mood: "add" not "added", "fix" not "fixed"
+- Lowercase, no period at end, max 72 chars
 
-Context:
+EXAMPLES based on diff content:
+- Adding README.md → docs: add README with usage instructions
+- Fixing null check in auth.py → fix(auth): handle null user in login
+- New API endpoint → feat(api): add user profile endpoint
+- Updating dependencies → build: update httpx to 0.25.0
+
+IMPORTANT: Base your message ONLY on the actual changes shown in the diff below.
+Do NOT use the examples above if they don't match the diff content.
+
 {context}
 
-Diff:
+DIFF TO ANALYZE:
+```
 {diff}
+```
 
-Reply with ONLY the commit message, nothing else."""
+Reply with ONLY the commit message, nothing else. No quotes, no explanation."""
 
 # Pattern to validate Karma convention commit messages
 KARMA_PATTERN = re.compile(
@@ -62,6 +74,31 @@ ACTION_TO_TYPE = {
 }
 
 
+MAX_DIFF_CHARS = 8000  # Truncate large diffs to avoid timeout
+
+
+def truncate_diff(diff: str, max_chars: int = MAX_DIFF_CHARS) -> str:
+    """Truncate a diff to avoid overwhelming the LLM.
+
+    Args:
+        diff: The git diff content.
+        max_chars: Maximum characters to keep.
+
+    Returns:
+        The truncated diff with a note if truncated.
+    """
+    if len(diff) <= max_chars:
+        return diff
+
+    truncated = diff[:max_chars]
+    # Try to cut at a line boundary
+    last_newline = truncated.rfind("\n")
+    if last_newline > max_chars * 0.8:
+        truncated = truncated[:last_newline]
+
+    return truncated + "\n\n[... diff truncated for brevity ...]"
+
+
 def build_prompt(diff: str, context: str) -> str:
     """Build a prompt for commit message generation.
 
@@ -72,7 +109,8 @@ def build_prompt(diff: str, context: str) -> str:
     Returns:
         The formatted prompt string.
     """
-    return KARMA_PROMPT.format(diff=diff, context=context)
+    truncated_diff = truncate_diff(diff)
+    return KARMA_PROMPT.format(diff=truncated_diff, context=context)
 
 
 def validate_message(message: str) -> bool:
