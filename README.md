@@ -10,6 +10,9 @@ A CLI tool that analyzes your staged changes and generates [Karma-style](https:/
 - **Karma Convention** - Generates `type(scope): subject` format commits
 - **Interactive Flow** - Confirm, Edit, Regenerate, or Abort before committing
 - **Individual Commits** - Option to commit each file separately
+- **Git Hook** - Auto-generate messages on `git commit`
+- **Summarize** - Preview changes in plain English before committing
+- **Debug Mode** - Troubleshoot LLM responses
 - **Configurable** - Customize model, temperature, and more via config file
 
 ## Installation
@@ -61,11 +64,38 @@ git-commit-ai --push
 # Commit each modified file separately
 git-commit-ai --individual
 
+# Preview changes before committing
+git add .
+git-commit-ai summarize
+
+# Enable debug output for troubleshooting
+git-commit-ai --debug
+
 # Show current config
 git-commit-ai config
 
 # Create/edit config file
 git-commit-ai config --edit
+```
+
+## Git Hook (Auto-generate on commit)
+
+Install a git hook to automatically generate commit messages:
+
+```bash
+# Install the hook
+git-commit-ai hook --install
+
+# Now just use git commit normally!
+git add .
+git commit
+# Message is auto-generated and opens in your editor
+
+# Check hook status
+git-commit-ai hook --status
+
+# Remove the hook
+git-commit-ai hook --remove
 ```
 
 ## Interactive Flow
