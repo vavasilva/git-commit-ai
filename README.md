@@ -24,25 +24,47 @@ brew services start ollama
 ollama pull llama3.1:8b
 ```
 
+## Quick Start
+
+```bash
+# 1. Make changes to your code
+echo "print('hello')" > hello.py
+
+# 2. Stage your changes
+git add hello.py
+
+# 3. Generate commit message and commit
+git-commit-ai
+
+# Output:
+# 📝 Generated commit message
+#   feat: add hello.py script
+# [C]onfirm  [E]dit  [R]egenerate  [A]bort? c
+# ✓ Committed: feat: add hello.py script
+```
+
 ## Usage
 
 ```bash
-# Stage changes and generate commit message
+# Basic: stage + generate + confirm + commit
+git add .
 git-commit-ai
 
-# Skip confirmation (auto-commit)
+# Auto-commit without confirmation
+git add .
 git-commit-ai -y
 
-# Commit and push
+# Commit and push in one command
+git add .
 git-commit-ai --push
 
-# Commit each file individually
+# Commit each modified file separately
 git-commit-ai --individual
 
 # Show current config
 git-commit-ai config
 
-# Create config file for customization
+# Create/edit config file
 git-commit-ai config --edit
 ```
 
