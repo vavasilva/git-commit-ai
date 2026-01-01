@@ -7,6 +7,15 @@ from rich.prompt import Prompt
 
 from .backends import OllamaBackend
 from .config import Config
+from .debug import (
+    debug,
+    debug_config,
+    debug_diff,
+    debug_prompt,
+    debug_response,
+    debug_validation,
+    enable_debug,
+)
 from .git import (
     GitError,
     add_files,
@@ -36,21 +45,29 @@ def generate_message(
 ) -> str | None:
     """Generate a valid commit message with retry logic."""
     prompt = build_prompt(diff_content, context)
+    debug_prompt(prompt)
 
     for temp in temperatures:
+        debug(f"Trying temperature: {temp}")
         try:
             raw_message = backend.generate(prompt, temperature=temp)
-            message = clean_message(raw_message)
+            debug_response(raw_message)
 
-            if validate_message(message):
+            message = clean_message(raw_message)
+            is_valid = validate_message(message)
+            debug_validation(message, is_valid)
+
+            if is_valid:
                 return message
 
             # Try to fix the message
             fixed = fix_message(message)
             if validate_message(fixed):
+                debug_validation(fixed, True, fixed)
                 return fixed
 
         except Exception as e:
+            debug(f"Generation error: {e}")
             console.print(f"[yellow]Warning: Generation failed at temp {temp}: {e}[/]")
             continue
 
@@ -123,6 +140,7 @@ def handle_single_commit(backend: OllamaBackend, cfg: Config, skip_confirm: bool
         console.print("[yellow]No changes to commit.[/]")
         raise typer.Exit(0)
 
+    debug_diff(diff_result.diff, diff_result.files)
     context = f"Files changed:\n{chr(10).join(diff_result.files[:5])}\nStats: {diff_result.stats}"
 
     message = run_commit_flow(backend, cfg, diff_result.diff, context, skip_confirm)
@@ -133,8 +151,10 @@ def handle_single_commit(backend: OllamaBackend, cfg: Config, skip_confirm: bool
 
     try:
         commit(message)
+        debug(f"Commit successful: {message}")
         console.print(f"[green]✓ Committed:[/] {message}")
     except GitError as e:
+        debug(f"Commit failed: {e}")
         console.print(f"[red]Error: {e}[/]")
         raise typer.Exit(1)
 
@@ -180,13 +200,23 @@ def main(
     individual: bool = typer.Option(
         False, "--individual", "-i", help="Commit files individually"
     ),
+    debug_mode: bool = typer.Option(
+        False, "--debug", "-d", help="Enable debug output for troubleshooting"
+    ),
 ):
     """Generate a commit message and commit staged changes."""
+    # Enable debug mode if requested
+    if debug_mode:
+        enable_debug()
+        debug("Debug mode enabled")
+
     # Skip if a subcommand is invoked
     if ctx.invoked_subcommand is not None:
         return
 
     cfg = Config.load()
+    debug_config(cfg)
+
     backend = OllamaBackend(model=cfg.model, base_url=cfg.ollama_url)
 
     # Check if Ollama is available
