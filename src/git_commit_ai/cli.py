@@ -25,6 +25,7 @@ from .git import (
     get_staged_diff,
     push,
 )
+from .hook import install_hook, is_hook_installed, remove_hook
 from .prompts import (
     build_prompt,
     build_summarize_prompt,
@@ -209,6 +210,9 @@ def main(
     debug_mode: bool = typer.Option(
         False, "--debug", "-d", help="Enable debug output for troubleshooting"
     ),
+    hook_mode: bool = typer.Option(
+        False, "--hook-mode", hidden=True, help="Called by git hook (outputs message only)"
+    ),
 ):
     """Generate a commit message and commit staged changes."""
     # Enable debug mode if requested
@@ -227,8 +231,25 @@ def main(
 
     # Check if Ollama is available
     if not backend.is_available():
+        if hook_mode:
+            raise typer.Exit(1)
         console.print("[red]Error: Ollama is not running.[/]")
         console.print("[dim]Start it with: brew services start ollama[/]")
+        raise typer.Exit(1)
+
+    # Hook mode: just output the message for the hook to use
+    if hook_mode:
+        diff_result = get_staged_diff()
+        if diff_result.is_empty:
+            raise typer.Exit(1)
+
+        context = f"Files changed:\n{chr(10).join(diff_result.files[:5])}\nStats: {diff_result.stats}"
+        temperatures = [cfg.temperature] + cfg.retry_temperatures
+        message = generate_message(backend, diff_result.diff, context, temperatures)
+
+        if message:
+            print(message)  # Plain output for the hook to capture
+            raise typer.Exit(0)
         raise typer.Exit(1)
 
     # Stage all files
@@ -323,6 +344,49 @@ def summarize_cmd(
         debug(f"Summary generation error: {e}")
         console.print(f"[red]Error generating summary: {e}[/]")
         raise typer.Exit(1)
+
+
+@app.command("hook")
+def hook_cmd(
+    install: bool = typer.Option(False, "--install", help="Install git hook"),
+    remove: bool = typer.Option(False, "--remove", help="Remove git hook"),
+    status: bool = typer.Option(False, "--status", help="Check hook status"),
+):
+    """Manage git hook for automatic commit message generation.
+
+    Install a prepare-commit-msg hook that automatically generates
+    commit messages when you run 'git commit'.
+    """
+    if not any([install, remove, status]):
+        # Default to status if no option given
+        status = True
+
+    if status:
+        if is_hook_installed():
+            console.print("[green]✓ git-commit-ai hook is installed[/]")
+        else:
+            console.print("[yellow]✗ git-commit-ai hook is not installed[/]")
+            console.print("[dim]Install with: git-commit-ai hook --install[/]")
+        return
+
+    if install:
+        success, message = install_hook()
+        if success:
+            console.print(f"[green]✓ {message}[/]")
+            console.print("[dim]Now 'git commit' will auto-generate messages![/]")
+        else:
+            console.print(f"[red]✗ {message}[/]")
+            raise typer.Exit(1)
+        return
+
+    if remove:
+        success, message = remove_hook()
+        if success:
+            console.print(f"[green]✓ {message}[/]")
+        else:
+            console.print(f"[red]✗ {message}[/]")
+            raise typer.Exit(1)
+        return
 
 
 if __name__ == "__main__":
