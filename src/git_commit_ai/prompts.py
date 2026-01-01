@@ -2,6 +2,25 @@
 
 import re
 
+SUMMARIZE_PROMPT = """Summarize the following code changes in plain English.
+
+Provide a brief, clear summary that explains:
+1. What files were changed
+2. What was added, removed, or modified
+3. The likely purpose of these changes
+
+Keep it concise (3-5 bullet points). Focus on the "what" and "why".
+
+{context}
+
+DIFF:
+```
+{diff}
+```
+
+Provide only the summary, no additional commentary."""
+
+
 KARMA_PROMPT = """Analyze the git diff below and create a commit message following Karma convention.
 
 FORMAT: <type>(<scope>): <subject>
@@ -111,6 +130,20 @@ def build_prompt(diff: str, context: str) -> str:
     """
     truncated_diff = truncate_diff(diff)
     return KARMA_PROMPT.format(diff=truncated_diff, context=context)
+
+
+def build_summarize_prompt(diff: str, context: str) -> str:
+    """Build a prompt for summarizing changes.
+
+    Args:
+        diff: The git diff content.
+        context: Additional context (file list, stats).
+
+    Returns:
+        The formatted prompt string.
+    """
+    truncated_diff = truncate_diff(diff)
+    return SUMMARIZE_PROMPT.format(diff=truncated_diff, context=context)
 
 
 def validate_message(message: str) -> bool:

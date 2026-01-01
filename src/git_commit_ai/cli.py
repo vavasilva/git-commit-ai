@@ -25,7 +25,13 @@ from .git import (
     get_staged_diff,
     push,
 )
-from .prompts import build_prompt, clean_message, fix_message, validate_message
+from .prompts import (
+    build_prompt,
+    build_summarize_prompt,
+    clean_message,
+    fix_message,
+    validate_message,
+)
 
 app = typer.Typer(
     name="git-commit-ai",
@@ -256,6 +262,67 @@ def config_cmd(
         console.print("[dim]Edit this file to customize settings.[/]")
     else:
         console.print(cfg.show())
+
+
+@app.command("summarize")
+def summarize_cmd(
+    show_diff: bool = typer.Option(False, "--diff", help="Also show the raw diff"),
+    debug_mode: bool = typer.Option(
+        False, "--debug", "-d", help="Enable debug output"
+    ),
+):
+    """Summarize staged changes in plain English."""
+    if debug_mode:
+        enable_debug()
+
+    cfg = Config.load()
+    backend = OllamaBackend(model=cfg.model, base_url=cfg.ollama_url)
+
+    # Check if Ollama is available
+    if not backend.is_available():
+        console.print("[red]Error: Ollama is not running.[/]")
+        console.print("[dim]Start it with: brew services start ollama[/]")
+        raise typer.Exit(1)
+
+    # Get staged diff (don't stage new files for summarize)
+    diff_result = get_staged_diff()
+
+    if diff_result.is_empty:
+        console.print("[yellow]No staged changes to summarize.[/]")
+        console.print("[dim]Stage changes with: git add <files>[/]")
+        raise typer.Exit(0)
+
+    debug_diff(diff_result.diff, diff_result.files)
+
+    # Show files being summarized
+    console.print(f"\n[bold]Files to summarize:[/] {len(diff_result.files)}")
+    for f in diff_result.files[:10]:
+        console.print(f"  • {f}")
+    if len(diff_result.files) > 10:
+        console.print(f"  ... and {len(diff_result.files) - 10} more")
+
+    # Build context and prompt
+    context = f"Files changed: {', '.join(diff_result.files[:5])}\nStats: {diff_result.stats}"
+    prompt = build_summarize_prompt(diff_result.diff, context)
+    debug_prompt(prompt)
+
+    console.print("\n[dim]Generating summary...[/]")
+
+    try:
+        summary = backend.generate(prompt, temperature=cfg.temperature)
+        debug_response(summary)
+
+        console.print()
+        console.print(Panel(summary.strip(), title="📋 Summary", border_style="blue"))
+
+        if show_diff:
+            console.print()
+            console.print(Panel(diff_result.diff, title="📄 Diff", border_style="dim"))
+
+    except Exception as e:
+        debug(f"Summary generation error: {e}")
+        console.print(f"[red]Error generating summary: {e}[/]")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
