@@ -89,7 +89,7 @@ def prompt_action(message: str) -> str:
 
     choice = Prompt.ask(
         "[C]onfirm  [E]dit  [R]egenerate  [A]bort",
-        choices=["c", "e", "r", "a"],
+        choices=["c", "e", "r", "a", "C", "E", "R", "A"],
         default="c",
         show_choices=False,
     )
