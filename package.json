@@ -7,18 +7,33 @@
   "bin": {
     "git-commit-ai": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vavasilva/git-commit-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vavasilva/git-commit-ai/issues"
+  },
+  "homepage": "https://github.com/vavasilva/git-commit-ai#readme",
   "keywords": [
     "git",
     "commit",
     "ai",
     "ollama",
-    "llm"
+    "llm",
+    "cli",
+    "karma",
+    "conventional-commits"
   ],
   "author": "Wagner Alexandre",
   "license": "MIT",
