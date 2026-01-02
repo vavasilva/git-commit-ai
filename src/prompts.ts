@@ -45,6 +45,8 @@ EXAMPLES based on diff content:
 IMPORTANT: Base your message ONLY on the actual changes shown in the diff below.
 Do NOT use the examples above if they don't match the diff content.
 
+{constraints}
+
 {context}
 
 DIFF TO ANALYZE:
@@ -53,6 +55,63 @@ DIFF TO ANALYZE:
 \`\`\`
 
 Reply with ONLY the commit message, nothing else. No quotes, no explanation.`;
+
+export interface PromptConstraints {
+  type?: string;
+  scope?: string;
+  language?: string;
+  breaking?: boolean;
+  context?: string;
+}
+
+const VALID_TYPES = ["feat", "fix", "docs", "style", "refactor", "test", "chore", "build", "ci", "perf", "revert"];
+
+export function isValidType(type: string): boolean {
+  return VALID_TYPES.includes(type.toLowerCase());
+}
+
+export function getValidTypes(): string[] {
+  return [...VALID_TYPES];
+}
+
+function buildConstraintsText(constraints: PromptConstraints): string {
+  const parts: string[] = [];
+
+  if (constraints.type) {
+    parts.push(`CONSTRAINT: You MUST use "${constraints.type}" as the commit type.`);
+  }
+
+  if (constraints.scope) {
+    parts.push(`CONSTRAINT: You MUST use "(${constraints.scope})" as the scope in the commit message.`);
+  }
+
+  if (constraints.breaking) {
+    parts.push(`CONSTRAINT: This is a BREAKING CHANGE. You MUST use "!" after the type/scope (e.g., "feat!:" or "feat(api)!:").`);
+  }
+
+  if (constraints.language) {
+    const langMap: Record<string, string> = {
+      en: "English",
+      pt: "Portuguese",
+      es: "Spanish",
+      fr: "French",
+      de: "German",
+      it: "Italian",
+      ja: "Japanese",
+      zh: "Chinese",
+      ko: "Korean",
+      ru: "Russian",
+    };
+    const langName = langMap[constraints.language.toLowerCase()] || constraints.language;
+    parts.push(`CONSTRAINT: Write the commit message subject in ${langName}.`);
+  }
+
+  if (constraints.context) {
+    parts.push(`ADDITIONAL CONTEXT: ${constraints.context}`);
+  }
+
+  return parts.join("\n");
+}
 
 const KARMA_PATTERN =
   /^(feat|fix|docs|style|refactor|test|chore|build|ci|perf|revert)(\([^)]+\))?:\s*.+/;
@@ -98,9 +157,13 @@ export function truncateDiff(diff: string, maxChars = MAX_DIFF_CHARS): string {
   return truncated + "\n\n[... diff truncated for brevity ...]";
 }
 
-export function buildPrompt(diff: string, context: string): string {
+export function buildPrompt(diff: string, context: string, constraints?: PromptConstraints): string {
   const truncatedDiff = truncateDiff(diff);
-  return KARMA_PROMPT.replace("{diff}", truncatedDiff).replace("{context}", context);
+  const constraintsText = constraints ? buildConstraintsText(constraints) : "";
+  return KARMA_PROMPT
+    .replace("{diff}", truncatedDiff)
+    .replace("{context}", context)
+    .replace("{constraints}", constraintsText);
 }
 
 export function buildSummarizePrompt(diff: string, context: string): string {
@@ -153,4 +216,27 @@ export function fixMessage(message: string): string {
   }
 
   return `chore: ${cleaned.toLowerCase()}`;
+}
+
+export function addIssueReference(message: string, issue: string): string {
+  // Normalize issue format - support #123 or just 123
+  const issueRef = issue.startsWith("#") ? issue : `#${issue}`;
+  return `${message}\n\nRefs: ${issueRef}`;
+}
+
+export function addCoAuthors(message: string, coAuthors: string[]): string {
+  if (coAuthors.length === 0) {
+    return message;
+  }
+  const trailers = coAuthors.map((author) => `Co-authored-by: ${author}`).join("\n");
+  return `${message}\n\n${trailers}`;
+}
+
+export function ensureBreakingMarker(message: string): string {
+  // Check if message already has breaking marker
+  if (message.includes("!:")) {
+    return message;
+  }
+  // Add ! before the colon
+  return message.replace(/:/, "!:");
 }
