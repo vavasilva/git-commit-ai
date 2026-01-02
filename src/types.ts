@@ -6,6 +6,10 @@ export interface Config {
   ollama_url: string;
   temperature: number;
   retry_temperatures: number[];
+  ignore_patterns?: string[];
+  default_scope?: string;
+  default_type?: string;
+  default_language?: string;
 }
 
 export interface DiffResult {
