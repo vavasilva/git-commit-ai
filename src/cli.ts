@@ -217,7 +217,12 @@ async function handleIndividualCommits(
   console.log(chalk.dim(`Found ${filesToCommit.length} files to commit individually.`));
 
   for (const filePath of filesToCommit) {
-    addFiles(filePath);
+    const added = addFiles(filePath);
+    if (!added) {
+      // File is ignored by .gitignore, skip it
+      continue;
+    }
+
     const diffResult = getFileDiff(filePath);
 
     if (diffResult.isEmpty) {

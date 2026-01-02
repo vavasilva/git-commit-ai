@@ -57,11 +57,21 @@ export function getFileDiff(filePath: string): DiffResult {
   };
 }
 
-export function addFiles(...paths: string[]): void {
+export function addFiles(...paths: string[]): boolean {
   if (paths.length === 0) {
     paths = ["."];
   }
-  runGit("add", ...paths);
+  try {
+    runGit("add", ...paths);
+    return true;
+  } catch (error) {
+    const err = error as GitError;
+    // Ignore "ignored file" errors
+    if (err.message.includes("ignored by one of your .gitignore")) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 export function commit(message: string): string {

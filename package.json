@@ -1,6 +1,6 @@
 {
   "name": "@vavasilva/git-commit-ai",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Generate commit messages using local LLMs (Ollama)",
   "type": "module",
   "main": "./dist/index.js",
