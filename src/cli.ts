@@ -16,9 +16,12 @@ import {
   getFileDiff,
   addFiles,
   commit,
+  commitAmend,
   push,
   getStagedFiles,
   resetStaged,
+  getLastCommitDiff,
+  filterDiffByPatterns,
   GitError,
 } from "./git.js";
 import {
@@ -27,6 +30,12 @@ import {
   cleanMessage,
   validateMessage,
   fixMessage,
+  isValidType,
+  getValidTypes,
+  addIssueReference,
+  addCoAuthors,
+  ensureBreakingMarker,
+  type PromptConstraints,
 } from "./prompts.js";
 import { installHook, removeHook, isHookInstalled } from "./hook.js";
 import {
@@ -78,9 +87,10 @@ async function generateMessage(
   backend: Backend,
   diffContent: string,
   context: string,
-  temperatures: number[]
+  temperatures: number[],
+  constraints?: PromptConstraints
 ): Promise<string | null> {
-  const prompt = buildPrompt(diffContent, context);
+  const prompt = buildPrompt(diffContent, context, constraints);
   debugPrompt(prompt);
 
   for (const temp of temperatures) {
@@ -89,7 +99,13 @@ async function generateMessage(
       const rawMessage = await backend.generate(prompt, temp);
       debugResponse(rawMessage);
 
-      const message = cleanMessage(rawMessage);
+      let message = cleanMessage(rawMessage);
+
+      // Ensure breaking marker if requested
+      if (constraints?.breaking) {
+        message = ensureBreakingMarker(message);
+      }
+
       const isValid = validateMessage(message);
       debugValidation(message, isValid);
 
@@ -101,7 +117,7 @@ async function generateMessage(
       const fixed = fixMessage(message);
       if (validateMessage(fixed)) {
         debugValidation(fixed, true, fixed);
-        return fixed;
+        return constraints?.breaking ? ensureBreakingMarker(fixed) : fixed;
       }
     } catch (e) {
       const error = e as Error;
@@ -136,7 +152,8 @@ async function runCommitFlow(
   cfg: Config,
   diffContent: string,
   context: string,
-  skipConfirm: boolean
+  skipConfirm: boolean,
+  constraints?: PromptConstraints
 ): Promise<string | null> {
   const temperatures = [cfg.temperature, ...cfg.retry_temperatures];
   const spinner = ora("Generating commit message...").start();
@@ -144,7 +161,7 @@ async function runCommitFlow(
   while (true) {
     let message: string | null;
     try {
-      message = await generateMessage(backend, diffContent, context, temperatures);
+      message = await generateMessage(backend, diffContent, context, temperatures, constraints);
     } finally {
       spinner.stop();
     }
@@ -175,39 +192,84 @@ async function runCommitFlow(
   }
 }
 
+interface CommitOptions {
+  skipConfirm: boolean;
+  dryRun: boolean;
+  amend: boolean;
+  constraints?: PromptConstraints;
+  issue?: string;
+  coAuthors?: string[];
+}
+
 async function handleSingleCommit(
   backend: Backend,
   cfg: Config,
-  skipConfirm: boolean,
-  dryRun: boolean = false
+  options: CommitOptions
 ): Promise<void> {
-  const diffResult = getStagedDiff();
+  let diffResult;
 
-  if (diffResult.isEmpty) {
-    console.log(chalk.yellow("No changes to commit."));
-    process.exit(0);
+  if (options.amend) {
+    // For amend, use the last commit's diff
+    diffResult = getLastCommitDiff();
+    if (diffResult.isEmpty) {
+      console.log(chalk.yellow("No previous commit to amend."));
+      process.exit(1);
+    }
+    console.log(chalk.dim("Amending last commit..."));
+  } else {
+    diffResult = getStagedDiff();
+    if (diffResult.isEmpty) {
+      console.log(chalk.yellow("No changes to commit."));
+      process.exit(0);
+    }
   }
 
-  debugDiff(diffResult.diff, diffResult.files);
+  // Apply ignore patterns
+  let diff = diffResult.diff;
+  if (cfg.ignore_patterns && cfg.ignore_patterns.length > 0) {
+    diff = filterDiffByPatterns(diff, cfg.ignore_patterns);
+    if (!diff.trim()) {
+      console.log(chalk.yellow("All changes are ignored by ignore_patterns."));
+      process.exit(0);
+    }
+  }
+
+  debugDiff(diff, diffResult.files);
   const context = `Files changed:\n${diffResult.files.slice(0, 5).join("\n")}\nStats: ${diffResult.stats}`;
 
-  const message = await runCommitFlow(backend, cfg, diffResult.diff, context, skipConfirm);
+  let message = await runCommitFlow(backend, cfg, diff, context, options.skipConfirm, options.constraints);
 
   if (message === null) {
     console.log(chalk.yellow("Aborted."));
     process.exit(0);
   }
 
-  if (dryRun) {
+  // Add issue reference if provided
+  if (options.issue) {
+    message = addIssueReference(message, options.issue);
+  }
+
+  // Add co-authors if provided
+  if (options.coAuthors && options.coAuthors.length > 0) {
+    message = addCoAuthors(message, options.coAuthors);
+  }
+
+  if (options.dryRun) {
     console.log(chalk.cyan("Dry run - message not committed:"));
     console.log(message);
     return;
   }
 
   try {
-    commit(message);
-    debug(`Commit successful: ${message}`);
-    console.log(chalk.green("✓ Committed:"), message);
+    if (options.amend) {
+      commitAmend(message);
+      debug(`Amend successful: ${message}`);
+      console.log(chalk.green("✓ Amended:"), message.split("\n")[0]);
+    } else {
+      commit(message);
+      debug(`Commit successful: ${message}`);
+      console.log(chalk.green("✓ Committed:"), message.split("\n")[0]);
+    }
   } catch (e) {
     const error = e as GitError;
     debug(`Commit failed: ${error.message}`);
@@ -219,8 +281,7 @@ async function handleSingleCommit(
 async function handleIndividualCommits(
   backend: Backend,
   cfg: Config,
-  skipConfirm: boolean,
-  dryRun: boolean = false
+  options: CommitOptions
 ): Promise<void> {
   // Get files that are already staged
   const stagedFiles = getStagedFiles();
@@ -237,6 +298,15 @@ async function handleIndividualCommits(
   resetStaged();
 
   for (const filePath of stagedFiles) {
+    // Skip files matching ignore patterns
+    if (cfg.ignore_patterns && cfg.ignore_patterns.length > 0) {
+      const { shouldIgnoreFile } = await import("./git.js");
+      if (shouldIgnoreFile(filePath, cfg.ignore_patterns)) {
+        console.log(chalk.dim(`Skipping ignored file: ${filePath}`));
+        continue;
+      }
+    }
+
     // Stage only this file
     const added = addFiles(filePath);
     if (!added) {
@@ -253,14 +323,24 @@ async function handleIndividualCommits(
     console.log(chalk.bold(`\nProcessing: ${filePath}`));
 
     const context = `File: ${filePath}\nStats: ${diffResult.stats}`;
-    const message = await runCommitFlow(backend, cfg, diffResult.diff, context, skipConfirm);
+    let message = await runCommitFlow(backend, cfg, diffResult.diff, context, options.skipConfirm, options.constraints);
 
     if (message === null) {
       console.log(chalk.yellow(`Skipped: ${filePath}`));
       continue;
     }
 
-    if (dryRun) {
+    // Add issue reference if provided
+    if (options.issue) {
+      message = addIssueReference(message, options.issue);
+    }
+
+    // Add co-authors if provided
+    if (options.coAuthors && options.coAuthors.length > 0) {
+      message = addCoAuthors(message, options.coAuthors);
+    }
+
+    if (options.dryRun) {
       console.log(chalk.cyan(`Dry run - ${filePath}:`));
       console.log(message);
       continue;
@@ -268,7 +348,7 @@ async function handleIndividualCommits(
 
     try {
       commit(message);
-      console.log(chalk.green("✓ Committed:"), message);
+      console.log(chalk.green("✓ Committed:"), message.split("\n")[0]);
     } catch (e) {
       const error = e as GitError;
       console.log(chalk.red(`Error committing ${filePath}: ${error.message}`));
@@ -292,6 +372,14 @@ export function createProgram(): Command {
     .option("-m, --model <model>", "Override model from config")
     .option("-t, --temperature <temp>", "Override temperature (0.0-1.0)", parseFloat)
     .option("--hook-mode", "Called by git hook (outputs message only)")
+    .option("--amend", "Regenerate and amend the last commit message")
+    .option("-s, --scope <scope>", "Force a specific scope (e.g., auth, api)")
+    .option("--type <type>", `Force commit type (${getValidTypes().join(", ")})`)
+    .option("-c, --context <text>", "Provide additional context for message generation")
+    .option("-l, --lang <code>", "Language for commit message (en, pt, es, fr, de, etc.)")
+    .option("--issue <ref>", "Reference an issue (e.g., 123 or #123)")
+    .option("--breaking", "Mark as breaking change (adds ! to type)")
+    .option("--co-author <author>", "Add co-author (can be used multiple times)", (val: string, prev: string[]) => prev.concat([val]), [] as string[])
     .action(async (options) => {
       if (options.debug) {
         enableDebug();
@@ -299,6 +387,13 @@ export function createProgram(): Command {
       }
 
       const cfg = loadConfig();
+
+      // Validate --type flag
+      if (options.type && !isValidType(options.type)) {
+        console.log(chalk.red(`Error: Invalid commit type "${options.type}"`));
+        console.log(chalk.dim(`Valid types: ${getValidTypes().join(", ")}`));
+        process.exit(1);
+      }
 
       // Override config with CLI options
       if (options.backend) {
@@ -367,6 +462,15 @@ export function createProgram(): Command {
         process.exit(1);
       }
 
+      // Build prompt constraints
+      const constraints: PromptConstraints = {
+        type: options.type || cfg.default_type,
+        scope: options.scope || cfg.default_scope,
+        language: options.lang || cfg.default_language,
+        breaking: options.breaking,
+        context: options.context,
+      };
+
       // Hook mode: just output the message
       if (options.hookMode) {
         const diffResult = getStagedDiff();
@@ -374,9 +478,15 @@ export function createProgram(): Command {
           process.exit(1);
         }
 
+        // Apply ignore patterns
+        let diff = diffResult.diff;
+        if (cfg.ignore_patterns && cfg.ignore_patterns.length > 0) {
+          diff = filterDiffByPatterns(diff, cfg.ignore_patterns);
+        }
+
         const context = `Files changed:\n${diffResult.files.slice(0, 5).join("\n")}\nStats: ${diffResult.stats}`;
         const temperatures = [cfg.temperature, ...cfg.retry_temperatures];
-        const message = await generateMessage(backend, diffResult.diff, context, temperatures);
+        const message = await generateMessage(backend, diff, context, temperatures, constraints);
 
         if (message) {
           console.log(message);
@@ -385,17 +495,33 @@ export function createProgram(): Command {
         process.exit(1);
       }
 
-      // Stage all files
-      addFiles(".");
+      // Build commit options
+      const commitOptions: CommitOptions = {
+        skipConfirm: options.yes,
+        dryRun: options.dryRun,
+        amend: options.amend,
+        constraints,
+        issue: options.issue,
+        coAuthors: options.coAuthor,
+      };
 
-      if (options.individual) {
-        await handleIndividualCommits(backend, cfg, options.yes, options.dryRun);
-      } else {
-        await handleSingleCommit(backend, cfg, options.yes, options.dryRun);
+      // Don't stage files if amending
+      if (!options.amend) {
+        addFiles(".");
       }
 
-      // Don't push in dry-run mode
-      if (options.push && !options.dryRun) {
+      if (options.individual) {
+        if (options.amend) {
+          console.log(chalk.red("Error: --amend cannot be used with --individual"));
+          process.exit(1);
+        }
+        await handleIndividualCommits(backend, cfg, commitOptions);
+      } else {
+        await handleSingleCommit(backend, cfg, commitOptions);
+      }
+
+      // Don't push in dry-run mode or amend mode
+      if (options.push && !options.dryRun && !options.amend) {
         try {
           push();
           console.log(chalk.green("✓ Changes pushed to remote."));
