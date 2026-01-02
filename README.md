@@ -91,6 +91,27 @@ git-commit-ai --individual
 git add .
 git-commit-ai --dry-run
 
+# Amend the last commit with a new message
+git-commit-ai --amend
+
+# Force a specific scope and type
+git-commit-ai --scope auth --type fix
+
+# Generate message in a specific language
+git-commit-ai --lang pt
+
+# Reference an issue
+git-commit-ai --issue 123
+
+# Mark as breaking change
+git-commit-ai --breaking
+
+# Add co-authors
+git-commit-ai --co-author "Jane Doe <jane@example.com>"
+
+# Provide additional context
+git-commit-ai --context "This fixes the login bug reported by QA"
+
 # Use a specific backend
 git-commit-ai --backend openai
 git-commit-ai --backend anthropic
@@ -149,7 +170,9 @@ git-commit-ai hook --remove
 
 ## Configuration
 
-Config file location: `~/.config/git-commit-ai/config.toml`
+### Global Config
+
+Location: `~/.config/git-commit-ai/config.toml`
 
 ```toml
 # Backend: ollama, openai, anthropic, groq
@@ -158,6 +181,25 @@ model = "llama3.1:8b"
 ollama_url = "http://localhost:11434"
 temperature = 0.7
 retry_temperatures = [0.5, 0.3, 0.2]
+
+# Optional: Ignore files from diff analysis
+ignore_patterns = ["*.lock", "package-lock.json", "*.min.js"]
+
+# Optional: Set defaults for commit messages
+default_scope = "api"          # Default scope if not specified
+default_type = "feat"          # Default commit type
+default_language = "en"        # Default language (en, pt, es, fr, de)
+```
+
+### Local Config (per-project)
+
+Create `.gitcommitai` or `.gitcommitai.toml` in your project root to override global settings:
+
+```toml
+# .gitcommitai
+default_scope = "frontend"
+default_language = "pt"
+ignore_patterns = ["dist/*", "*.generated.ts"]
 ```
 
 ### Default Models by Backend
@@ -178,9 +220,17 @@ retry_temperatures = [0.5, 0.3, 0.2]
 | `-i, --individual` | Commit files individually |
 | `-d, --debug` | Enable debug output |
 | `--dry-run` | Show message without committing |
+| `--amend` | Regenerate and amend the last commit |
 | `-b, --backend <name>` | Backend to use |
 | `-m, --model <name>` | Override model |
 | `-t, --temperature <n>` | Override temperature (0.0-1.0) |
+| `-s, --scope <scope>` | Force a specific scope (e.g., auth, api) |
+| `--type <type>` | Force commit type (feat, fix, docs, etc.) |
+| `-c, --context <text>` | Provide additional context for generation |
+| `-l, --lang <code>` | Language for message (en, pt, es, fr, de) |
+| `--issue <ref>` | Reference an issue (e.g., 123 or #123) |
+| `--breaking` | Mark as breaking change (adds ! to type) |
+| `--co-author <author>` | Add co-author (can be repeated) |
 
 ## Commit Types (Karma Convention)
 
