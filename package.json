@@ -1,7 +1,7 @@
 {
   "name": "@vavasilva/git-commit-ai",
-  "version": "0.2.3",
-  "description": "Generate commit messages using local LLMs (Ollama)",
+  "version": "0.3.0",
+  "description": "Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq)",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -17,6 +17,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build"
   },
@@ -33,6 +36,9 @@
     "commit",
     "ai",
     "ollama",
+    "openai",
+    "anthropic",
+    "groq",
     "llm",
     "cli",
     "karma",
@@ -42,8 +48,10 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^4.0.16",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "chalk": "^5.3.0",
