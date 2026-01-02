@@ -1,4 +1,10 @@
-# Python
+# Node.js
+node_modules/
+dist/
+*.log
+.npm
+
+# Python (legacy)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,7 +12,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
