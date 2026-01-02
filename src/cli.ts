@@ -4,14 +4,19 @@ import ora from "ora";
 import { createInterface } from "node:readline";
 
 import { loadConfig, saveConfig, showConfig, getConfigPath } from "./config.js";
-import { OllamaBackend } from "./backends/ollama.js";
+import {
+  createBackend,
+  detectBackend,
+  getAvailableBackends,
+  DEFAULT_MODELS,
+  type Backend,
+} from "./backends/index.js";
 import {
   getStagedDiff,
   getFileDiff,
   addFiles,
   commit,
   push,
-  getModifiedFiles,
   getStagedFiles,
   resetStaged,
   GitError,
@@ -33,7 +38,7 @@ import {
   debugResponse,
   debugValidation,
 } from "./debug.js";
-import type { Config, DiffResult } from "./types.js";
+import type { Config, BackendType } from "./types.js";
 
 async function promptUser(question: string, choices: string[]): Promise<string> {
   const rl = createInterface({
@@ -70,7 +75,7 @@ async function promptEdit(currentMessage: string): Promise<string> {
 }
 
 async function generateMessage(
-  backend: OllamaBackend,
+  backend: Backend,
   diffContent: string,
   context: string,
   temperatures: number[]
@@ -127,7 +132,7 @@ async function promptAction(message: string): Promise<string> {
 }
 
 async function runCommitFlow(
-  backend: OllamaBackend,
+  backend: Backend,
   cfg: Config,
   diffContent: string,
   context: string,
@@ -171,9 +176,10 @@ async function runCommitFlow(
 }
 
 async function handleSingleCommit(
-  backend: OllamaBackend,
+  backend: Backend,
   cfg: Config,
-  skipConfirm: boolean
+  skipConfirm: boolean,
+  dryRun: boolean = false
 ): Promise<void> {
   const diffResult = getStagedDiff();
 
@@ -192,6 +198,12 @@ async function handleSingleCommit(
     process.exit(0);
   }
 
+  if (dryRun) {
+    console.log(chalk.cyan("Dry run - message not committed:"));
+    console.log(message);
+    return;
+  }
+
   try {
     commit(message);
     debug(`Commit successful: ${message}`);
@@ -205,9 +217,10 @@ async function handleSingleCommit(
 }
 
 async function handleIndividualCommits(
-  backend: OllamaBackend,
+  backend: Backend,
   cfg: Config,
-  skipConfirm: boolean
+  skipConfirm: boolean,
+  dryRun: boolean = false
 ): Promise<void> {
   // Get files that are already staged
   const stagedFiles = getStagedFiles();
@@ -247,6 +260,12 @@ async function handleIndividualCommits(
       continue;
     }
 
+    if (dryRun) {
+      console.log(chalk.cyan(`Dry run - ${filePath}:`));
+      console.log(message);
+      continue;
+    }
+
     try {
       commit(message);
       console.log(chalk.green("✓ Committed:"), message);
@@ -262,12 +281,16 @@ export function createProgram(): Command {
 
   program
     .name("git-commit-ai")
-    .description("Generate commit messages using local LLMs")
-    .version("0.2.0")
+    .description("Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq)")
+    .version("0.3.0")
     .option("-p, --push", "Push after commit")
     .option("-y, --yes", "Skip confirmation")
     .option("-i, --individual", "Commit files individually")
     .option("-d, --debug", "Enable debug output")
+    .option("--dry-run", "Show generated message without committing")
+    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq)")
+    .option("-m, --model <model>", "Override model from config")
+    .option("-t, --temperature <temp>", "Override temperature (0.0-1.0)", parseFloat)
     .option("--hook-mode", "Called by git hook (outputs message only)")
     .action(async (options) => {
       if (options.debug) {
@@ -276,18 +299,71 @@ export function createProgram(): Command {
       }
 
       const cfg = loadConfig();
+
+      // Override config with CLI options
+      if (options.backend) {
+        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+        if (validBackends.includes(options.backend)) {
+          cfg.backend = options.backend;
+          // Set default model for the selected backend if model wasn't explicitly set
+          if (!options.model && cfg.model === "llama3.1:8b") {
+            cfg.model = DEFAULT_MODELS[cfg.backend];
+          }
+          debug(`Backend overridden to: ${cfg.backend}`);
+        } else {
+          console.log(chalk.red(`Error: Invalid backend "${options.backend}"`));
+          console.log(chalk.dim(`Valid backends: ${validBackends.join(", ")}`));
+          process.exit(1);
+        }
+      }
+      if (options.model) {
+        cfg.model = options.model;
+        debug(`Model overridden to: ${cfg.model}`);
+      }
+      if (options.temperature !== undefined && !isNaN(options.temperature)) {
+        cfg.temperature = options.temperature;
+        debug(`Temperature overridden to: ${cfg.temperature}`);
+      }
+
       debugConfig(cfg);
 
-      const backend = new OllamaBackend(cfg.model, cfg.ollama_url);
+      // Auto-detect backend if not explicitly set and no config
+      if (!options.backend && cfg.backend === "ollama") {
+        const detected = await detectBackend();
+        if (detected !== "ollama") {
+          cfg.backend = detected;
+          cfg.model = DEFAULT_MODELS[detected];
+          debug(`Auto-detected backend: ${detected}`);
+        }
+      }
 
-      // Check if Ollama is available
+      const backend = createBackend(cfg);
+      debug(`Using backend: ${cfg.backend} with model: ${cfg.model}`);
+
+      // Check if backend is available
       const available = await backend.isAvailable();
       if (!available) {
         if (options.hookMode) {
           process.exit(1);
         }
-        console.log(chalk.red("Error: Ollama is not running."));
-        console.log(chalk.dim("Start it with: brew services start ollama"));
+        if (cfg.backend === "ollama") {
+          console.log(chalk.red("Error: Ollama is not running."));
+          console.log(chalk.dim("Start it with: brew services start ollama"));
+        } else {
+          console.log(chalk.red(`Error: ${cfg.backend} backend is not available.`));
+          const envVar = {
+            openai: "OPENAI_API_KEY",
+            anthropic: "ANTHROPIC_API_KEY",
+            groq: "GROQ_API_KEY",
+          }[cfg.backend];
+          if (envVar) {
+            console.log(chalk.dim(`Set ${envVar} environment variable.`));
+          }
+        }
+        const availableBackends = getAvailableBackends();
+        if (availableBackends.length > 1) {
+          console.log(chalk.dim(`Available backends: ${availableBackends.join(", ")}`));
+        }
         process.exit(1);
       }
 
@@ -313,12 +389,13 @@ export function createProgram(): Command {
       addFiles(".");
 
       if (options.individual) {
-        await handleIndividualCommits(backend, cfg, options.yes);
+        await handleIndividualCommits(backend, cfg, options.yes, options.dryRun);
       } else {
-        await handleSingleCommit(backend, cfg, options.yes);
+        await handleSingleCommit(backend, cfg, options.yes, options.dryRun);
       }
 
-      if (options.push) {
+      // Don't push in dry-run mode
+      if (options.push && !options.dryRun) {
         try {
           push();
           console.log(chalk.green("✓ Changes pushed to remote."));
@@ -351,6 +428,7 @@ export function createProgram(): Command {
     .command("summarize")
     .description("Summarize staged changes in plain English")
     .option("--diff", "Also show the raw diff")
+    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq)")
     .option("-d, --debug", "Enable debug output")
     .action(async (options) => {
       if (options.debug) {
@@ -358,12 +436,35 @@ export function createProgram(): Command {
       }
 
       const cfg = loadConfig();
-      const backend = new OllamaBackend(cfg.model, cfg.ollama_url);
+
+      // Override backend if specified
+      if (options.backend) {
+        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+        if (validBackends.includes(options.backend)) {
+          cfg.backend = options.backend;
+          cfg.model = DEFAULT_MODELS[cfg.backend];
+        }
+      }
+
+      // Auto-detect backend
+      if (cfg.backend === "ollama") {
+        const detected = await detectBackend();
+        if (detected !== "ollama") {
+          cfg.backend = detected;
+          cfg.model = DEFAULT_MODELS[detected];
+        }
+      }
+
+      const backend = createBackend(cfg);
 
       const available = await backend.isAvailable();
       if (!available) {
-        console.log(chalk.red("Error: Ollama is not running."));
-        console.log(chalk.dim("Start it with: brew services start ollama"));
+        if (cfg.backend === "ollama") {
+          console.log(chalk.red("Error: Ollama is not running."));
+          console.log(chalk.dim("Start it with: brew services start ollama"));
+        } else {
+          console.log(chalk.red(`Error: ${cfg.backend} backend is not available.`));
+        }
         process.exit(1);
       }
 
