@@ -10,42 +10,71 @@ const DEFAULT_CONFIG: Config = {
   ollama_url: "http://localhost:11434",
   temperature: 0.7,
   retry_temperatures: [0.5, 0.3, 0.2],
+  ignore_patterns: [],
 };
 
 const VALID_BACKENDS: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+const LOCAL_CONFIG_NAMES = [".gitcommitai", ".gitcommitai.toml"];
 
 export function getConfigPath(): string {
   return join(homedir(), ".config", "git-commit-ai", "config.toml");
 }
 
-export function loadConfig(): Config {
-  const configPath = getConfigPath();
-
-  if (!existsSync(configPath)) {
-    return { ...DEFAULT_CONFIG };
-  }
-
-  try {
-    const content = readFileSync(configPath, "utf-8");
-    const data = parseToml(content) as Partial<Config>;
-
-    // Validate backend
-    let backend = data.backend ?? DEFAULT_CONFIG.backend;
-    if (!VALID_BACKENDS.includes(backend)) {
-      backend = DEFAULT_CONFIG.backend;
+export function getLocalConfigPath(): string | null {
+  for (const name of LOCAL_CONFIG_NAMES) {
+    if (existsSync(name)) {
+      return name;
     }
-
-    return {
-      backend,
-      model: data.model ?? DEFAULT_CONFIG.model,
-      ollama_url: data.ollama_url ?? DEFAULT_CONFIG.ollama_url,
-      temperature: data.temperature ?? DEFAULT_CONFIG.temperature,
-      retry_temperatures:
-        data.retry_temperatures ?? DEFAULT_CONFIG.retry_temperatures,
-    };
-  } catch {
-    return { ...DEFAULT_CONFIG };
   }
+  return null;
+}
+
+function parseConfigFile(path: string): Partial<Config> | null {
+  try {
+    const content = readFileSync(path, "utf-8");
+    return parseToml(content) as Partial<Config>;
+  } catch {
+    return null;
+  }
+}
+
+function mergeConfigs(base: Config, override: Partial<Config>): Config {
+  return {
+    backend: (VALID_BACKENDS.includes(override.backend as BackendType) ? override.backend : base.backend) as BackendType,
+    model: override.model ?? base.model,
+    ollama_url: override.ollama_url ?? base.ollama_url,
+    temperature: override.temperature ?? base.temperature,
+    retry_temperatures: override.retry_temperatures ?? base.retry_temperatures,
+    ignore_patterns: override.ignore_patterns ?? base.ignore_patterns,
+    default_scope: override.default_scope ?? base.default_scope,
+    default_type: override.default_type ?? base.default_type,
+    default_language: override.default_language ?? base.default_language,
+  };
+}
+
+export function loadConfig(): Config {
+  // Start with defaults
+  let config: Config = { ...DEFAULT_CONFIG };
+
+  // Load global config
+  const globalPath = getConfigPath();
+  if (existsSync(globalPath)) {
+    const globalData = parseConfigFile(globalPath);
+    if (globalData) {
+      config = mergeConfigs(config, globalData);
+    }
+  }
+
+  // Load local config (overrides global)
+  const localPath = getLocalConfigPath();
+  if (localPath) {
+    const localData = parseConfigFile(localPath);
+    if (localData) {
+      config = mergeConfigs(config, localData);
+    }
+  }
+
+  return config;
 }
 
 export function saveConfig(config: Config): void {
@@ -69,11 +98,31 @@ retry_temperatures = [${config.retry_temperatures.join(", ")}]
 }
 
 export function showConfig(config: Config): string {
-  return `Configuration:
+  const localPath = getLocalConfigPath();
+  let output = `Configuration:
   Backend: ${config.backend}
   Model: ${config.model}
   Ollama URL: ${config.ollama_url}
   Temperature: ${config.temperature}
-  Retry temperatures: [${config.retry_temperatures.join(", ")}]
-  Config file: ${getConfigPath()}`;
+  Retry temperatures: [${config.retry_temperatures.join(", ")}]`;
+
+  if (config.ignore_patterns && config.ignore_patterns.length > 0) {
+    output += `\n  Ignore patterns: [${config.ignore_patterns.join(", ")}]`;
+  }
+  if (config.default_scope) {
+    output += `\n  Default scope: ${config.default_scope}`;
+  }
+  if (config.default_type) {
+    output += `\n  Default type: ${config.default_type}`;
+  }
+  if (config.default_language) {
+    output += `\n  Default language: ${config.default_language}`;
+  }
+
+  output += `\n  Global config: ${getConfigPath()}`;
+  if (localPath) {
+    output += `\n  Local config: ${localPath}`;
+  }
+
+  return output;
 }
