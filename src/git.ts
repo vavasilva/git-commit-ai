@@ -66,8 +66,11 @@ export function addFiles(...paths: string[]): boolean {
     return true;
   } catch (error) {
     const err = error as GitError;
-    // Ignore "ignored file" errors
-    if (err.message.includes("ignored by one of your .gitignore")) {
+    // Ignore "ignored file" errors and "pathspec did not match" (deleted files)
+    if (
+      err.message.includes("ignored by one of your .gitignore") ||
+      err.message.includes("pathspec") && err.message.includes("did not match")
+    ) {
       return false;
     }
     throw error;
