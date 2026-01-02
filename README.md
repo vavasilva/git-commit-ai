@@ -18,8 +18,8 @@ A CLI tool that analyzes your staged changes and generates [Karma-style](https:/
 ## Installation
 
 ```bash
-# Requires Python 3.11+
-pip install git-commit-ai
+# Requires Node.js 20+
+npm install -g git-commit-ai
 
 # Make sure Ollama is running
 brew install ollama
@@ -31,19 +31,19 @@ ollama pull llama3.1:8b
 
 ```bash
 # 1. Make changes to your code
-echo "print('hello')" > hello.py
+echo "console.log('hello')" > hello.js
 
 # 2. Stage your changes
-git add hello.py
+git add hello.js
 
 # 3. Generate commit message and commit
 git-commit-ai
 
 # Output:
 # 📝 Generated commit message
-#   feat: add hello.py script
+#   feat: add hello.js script
 # [C]onfirm  [E]dit  [R]egenerate  [A]bort? c
-# ✓ Committed: feat: add hello.py script
+# ✓ Committed: feat: add hello.js script
 ```
 
 ## Usage
@@ -135,5 +135,3 @@ retry_temperatures = [0.5, 0.3, 0.2]
 ## License
 
 MIT
-# Test
-# Test line 2
