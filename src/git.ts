@@ -1,6 +1,56 @@
 import { execSync } from "node:child_process";
 import type { DiffResult } from "./types.js";
 
+function matchesPattern(filePath: string, pattern: string): boolean {
+  // Convert glob pattern to regex
+  // Support: *, **, ?
+  let regexStr = pattern
+    .replace(/\./g, "\\.")
+    .replace(/\*\*/g, "<<GLOBSTAR>>")
+    .replace(/\*/g, "[^/]*")
+    .replace(/<<GLOBSTAR>>/g, ".*")
+    .replace(/\?/g, ".");
+
+  // If pattern doesn't start with / or *, it can match anywhere in path
+  if (!pattern.startsWith("/") && !pattern.startsWith("*")) {
+    regexStr = `(^|/)${regexStr}`;
+  }
+
+  // Match end of string or after /
+  regexStr = `${regexStr}($|/)`;
+
+  try {
+    const regex = new RegExp(regexStr);
+    return regex.test(filePath);
+  } catch {
+    return false;
+  }
+}
+
+export function shouldIgnoreFile(filePath: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => matchesPattern(filePath, pattern));
+}
+
+export function filterDiffByPatterns(diff: string, patterns: string[]): string {
+  if (!patterns || patterns.length === 0) {
+    return diff;
+  }
+
+  // Split diff into file sections
+  const sections = diff.split(/(?=^diff --git)/m);
+  const filtered = sections.filter((section) => {
+    // Extract file path from diff header
+    const match = section.match(/^diff --git a\/(.+?) b\//m);
+    if (!match) {
+      return true; // Keep sections without proper header
+    }
+    const filePath = match[1];
+    return !shouldIgnoreFile(filePath, patterns);
+  });
+
+  return filtered.join("");
+}
+
 export class GitError extends Error {
   constructor(message: string) {
     super(message);
@@ -127,4 +177,23 @@ export function getStagedFiles(): string[] {
 
 export function resetStaged(): void {
   runGitSafe("reset", "HEAD");
+}
+
+export function getLastCommitDiff(): DiffResult {
+  const diff = runGitSafe("diff", "HEAD~1", "HEAD");
+  const stats = runGitSafe("diff", "HEAD~1", "HEAD", "--stat");
+  const filesOutput = runGitSafe("diff", "HEAD~1", "HEAD", "--name-only");
+  const files = filesOutput.split("\n").filter((f) => f);
+
+  return {
+    diff,
+    stats,
+    files,
+    isEmpty: !diff.trim(),
+  };
+}
+
+export function commitAmend(message: string): string {
+  runGit("commit", "--amend", "-m", `"${message.replace(/"/g, '\\"')}"`);
+  return runGit("rev-parse", "HEAD");
 }
