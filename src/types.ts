@@ -1,4 +1,7 @@
+export type BackendType = "ollama" | "openai" | "anthropic" | "groq";
+
 export interface Config {
+  backend: BackendType;
   model: string;
   ollama_url: string;
   temperature: number;
