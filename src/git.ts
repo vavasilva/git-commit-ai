@@ -119,3 +119,12 @@ export function hasStagedChanges(): boolean {
   const diff = runGitSafe("diff", "--cached", "--name-only");
   return Boolean(diff.trim());
 }
+
+export function getStagedFiles(): string[] {
+  const output = runGitSafe("diff", "--cached", "--name-only");
+  return output.split("\n").filter((f) => f);
+}
+
+export function resetStaged(): void {
+  runGitSafe("reset", "HEAD");
+}

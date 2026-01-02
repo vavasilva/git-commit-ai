@@ -12,6 +12,8 @@ import {
   commit,
   push,
   getModifiedFiles,
+  getStagedFiles,
+  resetStaged,
   GitError,
 } from "./git.js";
 import {
@@ -207,19 +209,25 @@ async function handleIndividualCommits(
   cfg: Config,
   skipConfirm: boolean
 ): Promise<void> {
-  const filesToCommit = getModifiedFiles();
+  // Get files that are already staged
+  const stagedFiles = getStagedFiles();
 
-  if (filesToCommit.length === 0) {
-    console.log(chalk.yellow("No files to commit."));
+  if (stagedFiles.length === 0) {
+    console.log(chalk.yellow("No staged files to commit."));
+    console.log(chalk.dim("Stage files with: git add <files>"));
     process.exit(0);
   }
 
-  console.log(chalk.dim(`Found ${filesToCommit.length} files to commit individually.`));
+  console.log(chalk.dim(`Found ${stagedFiles.length} files to commit individually.`));
 
-  for (const filePath of filesToCommit) {
+  // Unstage all files first
+  resetStaged();
+
+  for (const filePath of stagedFiles) {
+    // Stage only this file
     const added = addFiles(filePath);
     if (!added) {
-      // File is ignored by .gitignore, skip it
+      // File is ignored or doesn't exist, skip it
       continue;
     }
 
