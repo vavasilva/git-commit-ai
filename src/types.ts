@@ -17,6 +17,9 @@ export interface DiffResult {
   diff: string;
   stats: string;
   files: string[];
+  filesAdded: string[];
+  filesDeleted: string[];
+  filesModified: string[];
   isEmpty: boolean;
 }
 
