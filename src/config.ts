@@ -114,8 +114,8 @@ export function saveConfig(config: Config): void {
     mkdirSync(dir, { recursive: true });
   }
 
-  const content = `# git-commit-ai configuration
-# Backend: ollama, openai, anthropic, groq
+  let content = `# git-commit-ai configuration
+# Backend: ollama, llamacpp, openai, anthropic, groq
 backend = "${config.backend}"
 model = "${config.model}"
 ollama_url = "${config.ollama_url}"
@@ -125,6 +125,20 @@ openai_base_url = "${config.openai_base_url}"
 temperature = ${config.temperature}
 retry_temperatures = [${config.retry_temperatures.join(", ")}]
 `;
+
+  // Add optional fields if set
+  if (config.default_language) {
+    content += `default_language = "${config.default_language}"\n`;
+  }
+  if (config.default_scope) {
+    content += `default_scope = "${config.default_scope}"\n`;
+  }
+  if (config.default_type) {
+    content += `default_type = "${config.default_type}"\n`;
+  }
+  if (config.ignore_patterns && config.ignore_patterns.length > 0) {
+    content += `ignore_patterns = [${config.ignore_patterns.map(p => `"${p}"`).join(", ")}]\n`;
+  }
 
   writeFileSync(configPath, content, "utf-8");
 }
