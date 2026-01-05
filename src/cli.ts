@@ -3,7 +3,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { createInterface } from "node:readline";
 
-import { loadConfig, saveConfig, showConfig, getConfigPath, updateConfig, VALID_CONFIG_KEYS } from "./config.js";
+import { loadConfig, saveConfig, showConfig, getConfigPath, updateConfig, VALID_CONFIG_KEYS, CONFIG_ALIASES } from "./config.js";
 import {
   createBackend,
   detectBackend,
@@ -547,7 +547,18 @@ export function createProgram(): Command {
       if (options.listKeys) {
         console.log(chalk.bold("Valid config keys:"));
         for (const key of VALID_CONFIG_KEYS) {
-          console.log(`  ${key}`);
+          // Find alias for this key
+          const alias = Object.entries(CONFIG_ALIASES).find(([, v]) => v === key)?.[0];
+          if (alias) {
+            console.log(`  ${key} ${chalk.dim(`(alias: ${alias})`)}`);
+          } else {
+            console.log(`  ${key}`);
+          }
+        }
+        console.log();
+        console.log(chalk.bold("Short aliases:"));
+        for (const [alias, fullKey] of Object.entries(CONFIG_ALIASES)) {
+          console.log(`  ${alias} → ${fullKey}`);
         }
         return;
       }

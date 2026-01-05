@@ -33,6 +33,17 @@ export const VALID_CONFIG_KEYS = [
 
 export type ConfigKey = typeof VALID_CONFIG_KEYS[number];
 
+/**
+ * Short aliases for config keys
+ */
+export const CONFIG_ALIASES: Record<string, ConfigKey> = {
+  lang: "default_language",
+  scope: "default_scope",
+  type: "default_type",
+  url: "ollama_url",
+  temp: "temperature",
+};
+
 export function getConfigPath(): string {
   return join(homedir(), ".config", "git-commit-ai", "config.toml");
 }
@@ -154,16 +165,25 @@ export function showConfig(config: Config): string {
  * Returns an object with success status and message
  */
 export function updateConfig(key: string, value: string): { success: boolean; message: string } {
+  // Resolve alias to full key name
+  const resolvedKey = CONFIG_ALIASES[key] || key;
+  
   // Validate key
-  if (!VALID_CONFIG_KEYS.includes(key as ConfigKey)) {
+  if (!VALID_CONFIG_KEYS.includes(resolvedKey as ConfigKey)) {
+    const aliasHelp = Object.entries(CONFIG_ALIASES)
+      .map(([alias, full]) => `${alias} → ${full}`)
+      .join(", ");
     return {
       success: false,
-      message: `Invalid config key: "${key}". Valid keys: ${VALID_CONFIG_KEYS.join(", ")}`,
+      message: `Invalid config key: "${key}". Valid keys: ${VALID_CONFIG_KEYS.join(", ")}. Aliases: ${aliasHelp}`,
     };
   }
+  
+  // Use resolved key from here
+  const configKey = resolvedKey as ConfigKey;
 
   // Validate backend value
-  if (key === "backend" && !VALID_BACKENDS.includes(value as BackendType)) {
+  if (configKey === "backend" && !VALID_BACKENDS.includes(value as BackendType)) {
     return {
       success: false,
       message: `Invalid backend: "${value}". Valid backends: ${VALID_BACKENDS.join(", ")}`,
@@ -171,7 +191,7 @@ export function updateConfig(key: string, value: string): { success: boolean; me
   }
 
   // Validate temperature value
-  if (key === "temperature") {
+  if (configKey === "temperature") {
     const temp = parseFloat(value);
     if (isNaN(temp) || temp < 0 || temp > 1) {
       return {
@@ -184,7 +204,7 @@ export function updateConfig(key: string, value: string): { success: boolean; me
   // Load current config and update
   const config = loadConfig();
   
-  switch (key) {
+  switch (configKey) {
     case "backend":
       config.backend = value as BackendType;
       break;
@@ -212,8 +232,11 @@ export function updateConfig(key: string, value: string): { success: boolean; me
   }
 
   saveConfig(config);
+  
+  // Show alias resolution in message if applicable
+  const keyDisplay = key !== configKey ? `${key} (${configKey})` : configKey;
   return {
     success: true,
-    message: `Config updated: ${key} = "${value}"`,
+    message: `Config updated: ${keyDisplay} = "${value}"`,
   };
 }

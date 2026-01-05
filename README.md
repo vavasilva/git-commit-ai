@@ -338,7 +338,13 @@ git-commit-ai config --set backend=llamacpp
 git-commit-ai config --set model=gpt-4o
 git-commit-ai config --set temperature=0.5
 
-# List valid config keys
+# Use short aliases
+git-commit-ai config --set lang=pt        # → default_language
+git-commit-ai config --set scope=api      # → default_scope
+git-commit-ai config --set type=feat      # → default_type
+git-commit-ai config --set temp=0.5       # → temperature
+
+# List valid config keys and aliases
 git-commit-ai config --list-keys
 
 # Create/edit config file manually
