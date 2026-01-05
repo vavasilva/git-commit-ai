@@ -38,6 +38,7 @@ describe("loadConfig", () => {
       backend: "ollama",
       model: "llama3.1:8b",
       ollama_url: "http://localhost:11434",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.7,
       retry_temperatures: [0.5, 0.3, 0.2],
       ignore_patterns: [],

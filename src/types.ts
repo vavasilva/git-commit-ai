@@ -4,6 +4,7 @@ export interface Config {
   backend: BackendType;
   model: string;
   ollama_url: string;
+  openai_base_url: string;
   temperature: number;
   retry_temperatures: number[];
   ignore_patterns?: string[];

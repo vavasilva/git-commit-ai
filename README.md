@@ -35,8 +35,44 @@ brew services start ollama
 ollama pull llama3.1:8b
 ```
 
+**llama.cpp (Local, Free, Low Memory)**
+
+Run local GGUF models with `llama-server` (OpenAI-compatible API):
+
+```bash
+# Install llama.cpp
+brew install llama.cpp
+
+# Download a GGUF model (e.g., Qwen2.5-Coder-1.5B with Q4_K_M quantization)
+# From Hugging Face: https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF
+
+# Start the server
+llama-server -m model.gguf --port 8080 --alias gpt-4o-mini
+
+# Or download directly from Hugging Face
+llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF --port 8080
+
+# Set the base URL
+export OPENAI_BASE_URL="http://localhost:8080/v1"
+
+# Use with git-commit-ai
+git-commit-ai --backend openai
+```
+
 **OpenAI**
 ```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+**OpenAI-Compatible APIs**
+
+Any OpenAI-compatible API can be used by setting `OPENAI_BASE_URL`:
+```bash
+# Local server (llama.cpp, vLLM, etc.)
+export OPENAI_BASE_URL="http://localhost:8080/v1"
+
+# Or other providers (Together AI, Anyscale, etc.)
+export OPENAI_BASE_URL="https://api.together.xyz/v1"
 export OPENAI_API_KEY="your-api-key"
 ```
 
@@ -182,6 +218,13 @@ ollama_url = "http://localhost:11434"
 temperature = 0.7
 retry_temperatures = [0.5, 0.3, 0.2]
 
+# OpenAI Base URL - change this to use OpenAI-compatible APIs
+# Examples:
+#   - Default OpenAI: https://api.openai.com/v1
+#   - llama.cpp:      http://localhost:8080/v1
+#   - Together AI:    https://api.together.xyz/v1
+openai_base_url = "https://api.openai.com/v1"
+
 # Optional: Ignore files from diff analysis
 ignore_patterns = ["*.lock", "package-lock.json", "*.min.js"]
 
@@ -250,6 +293,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | Variable | Description |
 |----------|-------------|
 | `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_BASE_URL` | OpenAI-compatible API base URL (default: `https://api.openai.com/v1`) |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `GROQ_API_KEY` | Groq API key |
 

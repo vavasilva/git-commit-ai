@@ -28,7 +28,7 @@ export function createBackend(config: Config): Backend {
 
   switch (config.backend) {
     case "openai":
-      return new OpenAIBackend(model);
+      return new OpenAIBackend(model, undefined, config.openai_base_url);
     case "anthropic":
       return new AnthropicBackend(model);
     case "groq":
@@ -41,13 +41,21 @@ export function createBackend(config: Config): Backend {
 
 /**
  * Auto-detect the best available backend based on API keys
- * Priority: Ollama (local) > Groq (fast) > OpenAI > Anthropic
+ * Priority: Ollama (local) > OpenAI with custom URL (llama.cpp) > Groq (fast) > OpenAI > Anthropic
  */
 export async function detectBackend(): Promise<BackendType> {
   // First try Ollama (local, no API key needed)
   const ollama = new OllamaBackend();
   if (await ollama.isAvailable()) {
     return "ollama";
+  }
+
+  // Check for OpenAI-compatible local server (llama.cpp, etc.)
+  if (OpenAIBackend.hasCustomBaseUrl()) {
+    const localOpenai = new OpenAIBackend();
+    if (await localOpenai.isAvailable()) {
+      return "openai";
+    }
   }
 
   // Then check for cloud API keys
@@ -73,7 +81,8 @@ export async function detectBackend(): Promise<BackendType> {
 export function getAvailableBackends(): BackendType[] {
   const available: BackendType[] = ["ollama"]; // Always available (local)
 
-  if (OpenAIBackend.hasApiKey()) {
+  // OpenAI is available with API key OR with custom base URL (llama.cpp, etc.)
+  if (OpenAIBackend.isConfigured()) {
     available.push("openai");
   }
 

@@ -8,6 +8,7 @@ const DEFAULT_CONFIG: Config = {
   backend: "ollama",
   model: "llama3.1:8b",
   ollama_url: "http://localhost:11434",
+  openai_base_url: "https://api.openai.com/v1",
   temperature: 0.7,
   retry_temperatures: [0.5, 0.3, 0.2],
   ignore_patterns: [],
@@ -43,6 +44,7 @@ function mergeConfigs(base: Config, override: Partial<Config>): Config {
     backend: (VALID_BACKENDS.includes(override.backend as BackendType) ? override.backend : base.backend) as BackendType,
     model: override.model ?? base.model,
     ollama_url: override.ollama_url ?? base.ollama_url,
+    openai_base_url: override.openai_base_url ?? base.openai_base_url,
     temperature: override.temperature ?? base.temperature,
     retry_temperatures: override.retry_temperatures ?? base.retry_temperatures,
     ignore_patterns: override.ignore_patterns ?? base.ignore_patterns,
@@ -90,6 +92,9 @@ export function saveConfig(config: Config): void {
 backend = "${config.backend}"
 model = "${config.model}"
 ollama_url = "${config.ollama_url}"
+# OpenAI Base URL - change this to use OpenAI-compatible APIs like llama.cpp
+# Example: http://localhost:8080/v1 for llama-server
+openai_base_url = "${config.openai_base_url}"
 temperature = ${config.temperature}
 retry_temperatures = [${config.retry_temperatures.join(", ")}]
 `;
@@ -103,6 +108,7 @@ export function showConfig(config: Config): string {
   Backend: ${config.backend}
   Model: ${config.model}
   Ollama URL: ${config.ollama_url}
+  OpenAI Base URL: ${config.openai_base_url}
   Temperature: ${config.temperature}
   Retry temperatures: [${config.retry_temperatures.join(", ")}]`;
 
