@@ -1,4 +1,4 @@
-export type BackendType = "ollama" | "openai" | "anthropic" | "groq";
+export type BackendType = "ollama" | "openai" | "anthropic" | "groq" | "llamacpp";
 
 export interface Config {
   backend: BackendType;

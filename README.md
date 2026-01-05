@@ -1,12 +1,12 @@
 # git-commit-ai
 
-Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq).
+Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp).
 
 A CLI tool that analyzes your staged changes and generates [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) commit messages using AI.
 
 ## Features
 
-- **Multiple Backends** - Ollama (local), OpenAI, Anthropic Claude, Groq
+- **Multiple Backends** - Ollama (local), llama.cpp (local), OpenAI, Anthropic Claude, Groq
 - **Auto-Detection** - Automatically selects available backend
 - **Karma Convention** - Generates `type(scope): subject` format commits
 - **Interactive Flow** - Confirm, Edit, Regenerate, or Abort before committing
@@ -37,7 +37,7 @@ ollama pull llama3.1:8b
 
 **llama.cpp (Local, Free, Low Memory)**
 
-Run local GGUF models with `llama-server` (OpenAI-compatible API):
+Run local GGUF models with `llama-server` (auto-detected on port 8080):
 
 ```bash
 # Install llama.cpp
@@ -46,17 +46,17 @@ brew install llama.cpp
 # Download a GGUF model (e.g., Qwen2.5-Coder-1.5B with Q4_K_M quantization)
 # From Hugging Face: https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF
 
-# Start the server
-llama-server -m model.gguf --port 8080 --alias gpt-4o-mini
+# Start the server (port 8080 is auto-detected)
+llama-server -m model.gguf --port 8080
 
 # Or download directly from Hugging Face
 llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF --port 8080
 
-# Set the base URL
-export OPENAI_BASE_URL="http://localhost:8080/v1"
+# Use with git-commit-ai (auto-detected if running on port 8080)
+git-commit-ai
 
-# Use with git-commit-ai
-git-commit-ai --backend openai
+# Or explicitly use llamacpp backend
+git-commit-ai --backend llamacpp
 ```
 
 **OpenAI**
@@ -149,6 +149,7 @@ git-commit-ai --co-author "Jane Doe <jane@example.com>"
 git-commit-ai --context "This fixes the login bug reported by QA"
 
 # Use a specific backend
+git-commit-ai --backend llamacpp
 git-commit-ai --backend openai
 git-commit-ai --backend anthropic
 git-commit-ai --backend groq
@@ -170,7 +171,15 @@ git-commit-ai --debug
 # Show current config
 git-commit-ai config
 
-# Create/edit config file
+# Set a config value
+git-commit-ai config --set backend=llamacpp
+git-commit-ai config --set model=gpt-4o
+git-commit-ai config --set temperature=0.5
+
+# List valid config keys
+git-commit-ai config --list-keys
+
+# Create/edit config file manually
 git-commit-ai config --edit
 ```
 
@@ -211,7 +220,7 @@ git-commit-ai hook --remove
 Location: `~/.config/git-commit-ai/config.toml`
 
 ```toml
-# Backend: ollama, openai, anthropic, groq
+# Backend: ollama, llamacpp, openai, anthropic, groq
 backend = "ollama"
 model = "llama3.1:8b"
 ollama_url = "http://localhost:11434"
@@ -250,6 +259,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | Backend | Default Model |
 |---------|---------------|
 | ollama | llama3.1:8b |
+| llamacpp | gpt-4o-mini (alias) |
 | openai | gpt-4o-mini |
 | anthropic | claude-3-haiku-20240307 |
 | groq | llama-3.1-8b-instant |
@@ -274,6 +284,15 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | `--issue <ref>` | Reference an issue (e.g., 123 or #123) |
 | `--breaking` | Mark as breaking change (adds ! to type) |
 | `--co-author <author>` | Add co-author (can be repeated) |
+
+## Config Commands
+
+| Command | Description |
+|---------|-------------|
+| `config` | Show current configuration |
+| `config --edit` | Create/edit config file manually |
+| `config --set <key=value>` | Set a config value |
+| `config --list-keys` | List all valid config keys |
 
 ## Commit Types (Karma Convention)
 

@@ -14,8 +14,24 @@ const DEFAULT_CONFIG: Config = {
   ignore_patterns: [],
 };
 
-const VALID_BACKENDS: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+export const VALID_BACKENDS: BackendType[] = ["ollama", "openai", "anthropic", "groq", "llamacpp"];
 const LOCAL_CONFIG_NAMES = [".gitcommitai", ".gitcommitai.toml"];
+
+/**
+ * Valid config keys that can be set via CLI
+ */
+export const VALID_CONFIG_KEYS = [
+  "backend",
+  "model",
+  "ollama_url",
+  "openai_base_url",
+  "temperature",
+  "default_scope",
+  "default_type",
+  "default_language",
+] as const;
+
+export type ConfigKey = typeof VALID_CONFIG_KEYS[number];
 
 export function getConfigPath(): string {
   return join(homedir(), ".config", "git-commit-ai", "config.toml");
@@ -131,4 +147,73 @@ export function showConfig(config: Config): string {
   }
 
   return output;
+}
+
+/**
+ * Update a single config value
+ * Returns an object with success status and message
+ */
+export function updateConfig(key: string, value: string): { success: boolean; message: string } {
+  // Validate key
+  if (!VALID_CONFIG_KEYS.includes(key as ConfigKey)) {
+    return {
+      success: false,
+      message: `Invalid config key: "${key}". Valid keys: ${VALID_CONFIG_KEYS.join(", ")}`,
+    };
+  }
+
+  // Validate backend value
+  if (key === "backend" && !VALID_BACKENDS.includes(value as BackendType)) {
+    return {
+      success: false,
+      message: `Invalid backend: "${value}". Valid backends: ${VALID_BACKENDS.join(", ")}`,
+    };
+  }
+
+  // Validate temperature value
+  if (key === "temperature") {
+    const temp = parseFloat(value);
+    if (isNaN(temp) || temp < 0 || temp > 1) {
+      return {
+        success: false,
+        message: `Invalid temperature: "${value}". Must be a number between 0 and 1.`,
+      };
+    }
+  }
+
+  // Load current config and update
+  const config = loadConfig();
+  
+  switch (key) {
+    case "backend":
+      config.backend = value as BackendType;
+      break;
+    case "model":
+      config.model = value;
+      break;
+    case "ollama_url":
+      config.ollama_url = value;
+      break;
+    case "openai_base_url":
+      config.openai_base_url = value;
+      break;
+    case "temperature":
+      config.temperature = parseFloat(value);
+      break;
+    case "default_scope":
+      config.default_scope = value;
+      break;
+    case "default_type":
+      config.default_type = value;
+      break;
+    case "default_language":
+      config.default_language = value;
+      break;
+  }
+
+  saveConfig(config);
+  return {
+    success: true,
+    message: `Config updated: ${key} = "${value}"`,
+  };
 }

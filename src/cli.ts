@@ -3,7 +3,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { createInterface } from "node:readline";
 
-import { loadConfig, saveConfig, showConfig, getConfigPath } from "./config.js";
+import { loadConfig, saveConfig, showConfig, getConfigPath, updateConfig, VALID_CONFIG_KEYS } from "./config.js";
 import {
   createBackend,
   detectBackend,
@@ -361,14 +361,14 @@ export function createProgram(): Command {
 
   program
     .name("git-commit-ai")
-    .description("Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq)")
+    .description("Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp)")
     .version("0.3.0")
     .option("-p, --push", "Push after commit")
     .option("-y, --yes", "Skip confirmation")
     .option("-i, --individual", "Commit files individually")
     .option("-d, --debug", "Enable debug output")
     .option("--dry-run", "Show generated message without committing")
-    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq)")
+    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq, llamacpp)")
     .option("-m, --model <model>", "Override model from config")
     .option("-t, --temperature <temp>", "Override temperature (0.0-1.0)", parseFloat)
     .option("--hook-mode", "Called by git hook (outputs message only)")
@@ -397,7 +397,7 @@ export function createProgram(): Command {
 
       // Override config with CLI options
       if (options.backend) {
-        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq", "llamacpp"];
         if (validBackends.includes(options.backend)) {
           cfg.backend = options.backend;
           // Set default model for the selected backend if model wasn't explicitly set
@@ -444,13 +444,16 @@ export function createProgram(): Command {
         if (cfg.backend === "ollama") {
           console.log(chalk.red("Error: Ollama is not running."));
           console.log(chalk.dim("Start it with: brew services start ollama"));
+        } else if (cfg.backend === "llamacpp") {
+          console.log(chalk.red("Error: llama.cpp server is not running."));
+          console.log(chalk.dim("Start it with: llama-server -m model.gguf --port 8080"));
         } else {
           console.log(chalk.red(`Error: ${cfg.backend} backend is not available.`));
           const envVar = {
             openai: "OPENAI_API_KEY",
             anthropic: "ANTHROPIC_API_KEY",
             groq: "GROQ_API_KEY",
-          }[cfg.backend];
+          }[cfg.backend as string];
           if (envVar) {
             console.log(chalk.dim(`Set ${envVar} environment variable.`));
           }
@@ -537,7 +540,39 @@ export function createProgram(): Command {
     .command("config")
     .description("Show or edit configuration")
     .option("-e, --edit", "Create/edit configuration file")
+    .option("-s, --set <key=value>", "Set a config value (e.g., --set backend=llamacpp)")
+    .option("-l, --list-keys", "List all valid config keys")
     .action((options) => {
+      // List valid keys
+      if (options.listKeys) {
+        console.log(chalk.bold("Valid config keys:"));
+        for (const key of VALID_CONFIG_KEYS) {
+          console.log(`  ${key}`);
+        }
+        return;
+      }
+
+      // Set a config value
+      if (options.set) {
+        const match = options.set.match(/^([^=]+)=(.*)$/);
+        if (!match) {
+          console.log(chalk.red("Error: Invalid format. Use: --set key=value"));
+          console.log(chalk.dim("Example: git-commit-ai config --set backend=llamacpp"));
+          process.exit(1);
+        }
+
+        const [, key, value] = match;
+        const result = updateConfig(key, value);
+
+        if (result.success) {
+          console.log(chalk.green(`✓ ${result.message}`));
+        } else {
+          console.log(chalk.red(`Error: ${result.message}`));
+          process.exit(1);
+        }
+        return;
+      }
+
       const cfg = loadConfig();
 
       if (options.edit) {
@@ -554,7 +589,7 @@ export function createProgram(): Command {
     .command("summarize")
     .description("Summarize staged changes in plain English")
     .option("--diff", "Also show the raw diff")
-    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq)")
+    .option("-b, --backend <backend>", "Backend to use (ollama, openai, anthropic, groq, llamacpp)")
     .option("-d, --debug", "Enable debug output")
     .action(async (options) => {
       if (options.debug) {
@@ -565,7 +600,7 @@ export function createProgram(): Command {
 
       // Override backend if specified
       if (options.backend) {
-        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq"];
+        const validBackends: BackendType[] = ["ollama", "openai", "anthropic", "groq", "llamacpp"];
         if (validBackends.includes(options.backend)) {
           cfg.backend = options.backend;
           cfg.model = DEFAULT_MODELS[cfg.backend];
