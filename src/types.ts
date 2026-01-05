@@ -1,9 +1,10 @@
-export type BackendType = "ollama" | "openai" | "anthropic" | "groq";
+export type BackendType = "ollama" | "openai" | "anthropic" | "groq" | "llamacpp";
 
 export interface Config {
   backend: BackendType;
   model: string;
   ollama_url: string;
+  openai_base_url: string;
   temperature: number;
   retry_temperatures: number[];
   ignore_patterns?: string[];

@@ -11,6 +11,11 @@ export { GroqBackend } from "./groq.js";
 export type { Backend };
 
 /**
+ * Default URL for llama.cpp server
+ */
+export const LLAMACPP_DEFAULT_URL = "http://localhost:8080/v1";
+
+/**
  * Default models for each backend
  */
 export const DEFAULT_MODELS: Record<BackendType, string> = {
@@ -18,6 +23,7 @@ export const DEFAULT_MODELS: Record<BackendType, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-3-haiku-20240307",
   groq: "llama-3.1-8b-instant",
+  llamacpp: "gpt-4o-mini", // Model alias used by llama-server (--alias flag)
 };
 
 /**
@@ -28,7 +34,10 @@ export function createBackend(config: Config): Backend {
 
   switch (config.backend) {
     case "openai":
-      return new OpenAIBackend(model);
+      return new OpenAIBackend(model, undefined, config.openai_base_url);
+    case "llamacpp":
+      // llamacpp uses OpenAI-compatible API with default localhost:8080
+      return new OpenAIBackend(model, undefined, LLAMACPP_DEFAULT_URL);
     case "anthropic":
       return new AnthropicBackend(model);
     case "groq":
@@ -41,13 +50,27 @@ export function createBackend(config: Config): Backend {
 
 /**
  * Auto-detect the best available backend based on API keys
- * Priority: Ollama (local) > Groq (fast) > OpenAI > Anthropic
+ * Priority: Ollama (local) > llama.cpp (local) > OpenAI with custom URL > Groq (fast) > OpenAI > Anthropic
  */
 export async function detectBackend(): Promise<BackendType> {
   // First try Ollama (local, no API key needed)
   const ollama = new OllamaBackend();
   if (await ollama.isAvailable()) {
     return "ollama";
+  }
+
+  // Try llama.cpp on default port (localhost:8080)
+  const llamacpp = new OpenAIBackend(DEFAULT_MODELS.llamacpp, undefined, LLAMACPP_DEFAULT_URL);
+  if (await llamacpp.isAvailable()) {
+    return "llamacpp";
+  }
+
+  // Check for OpenAI-compatible local server with custom URL
+  if (OpenAIBackend.hasCustomBaseUrl()) {
+    const localOpenai = new OpenAIBackend();
+    if (await localOpenai.isAvailable()) {
+      return "openai";
+    }
   }
 
   // Then check for cloud API keys
@@ -71,9 +94,10 @@ export async function detectBackend(): Promise<BackendType> {
  * Check which backends have API keys configured
  */
 export function getAvailableBackends(): BackendType[] {
-  const available: BackendType[] = ["ollama"]; // Always available (local)
+  const available: BackendType[] = ["ollama", "llamacpp"]; // Local backends always listed
 
-  if (OpenAIBackend.hasApiKey()) {
+  // OpenAI is available with API key OR with custom base URL
+  if (OpenAIBackend.isConfigured()) {
     available.push("openai");
   }
 

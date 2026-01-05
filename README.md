@@ -1,12 +1,12 @@
 # git-commit-ai
 
-Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq).
+Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp).
 
 A CLI tool that analyzes your staged changes and generates [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) commit messages using AI.
 
 ## Features
 
-- **Multiple Backends** - Ollama (local), OpenAI, Anthropic Claude, Groq
+- **Multiple Backends** - Ollama (local), llama.cpp (local), OpenAI, Anthropic Claude, Groq
 - **Auto-Detection** - Automatically selects available backend
 - **Karma Convention** - Generates `type(scope): subject` format commits
 - **Interactive Flow** - Confirm, Edit, Regenerate, or Abort before committing
@@ -35,8 +35,86 @@ brew services start ollama
 ollama pull llama3.1:8b
 ```
 
+**llama.cpp (Local, Free, Low Memory)**
+
+Run local GGUF models with `llama-server` (auto-detected on port 8080):
+
+```bash
+# Install llama.cpp
+brew install llama.cpp
+
+# Start the server (downloads model automatically from Hugging Face)
+llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF -ngl 99 --port 8080
+
+# Use with git-commit-ai (auto-detected if running on port 8080)
+git-commit-ai
+
+# Or explicitly use llamacpp backend
+git-commit-ai --backend llamacpp
+
+# Configure as default backend
+git-commit-ai config --set backend=llamacpp
+```
+
+**Run llama-server as a service (macOS)**
+
+To keep llama-server running automatically:
+
+```bash
+# Create launchd service
+cat > ~/Library/LaunchAgents/com.llamacpp.server.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.llamacpp.server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/llama-server</string>
+        <string>-hf</string>
+        <string>Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF</string>
+        <string>-ngl</string>
+        <string>99</string>
+        <string>--port</string>
+        <string>8080</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/llama-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/llama-server.err</string>
+</dict>
+</plist>
+EOF
+
+# Start the service
+launchctl load ~/Library/LaunchAgents/com.llamacpp.server.plist
+
+# Stop the service
+launchctl unload ~/Library/LaunchAgents/com.llamacpp.server.plist
+
+# Check logs
+tail -f /tmp/llama-server.log
+```
+
 **OpenAI**
 ```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+**OpenAI-Compatible APIs**
+
+Any OpenAI-compatible API can be used by setting `OPENAI_BASE_URL`:
+```bash
+# Local server (llama.cpp, vLLM, etc.)
+export OPENAI_BASE_URL="http://localhost:8080/v1"
+
+# Or other providers (Together AI, Anyscale, etc.)
+export OPENAI_BASE_URL="https://api.together.xyz/v1"
 export OPENAI_API_KEY="your-api-key"
 ```
 
@@ -113,6 +191,7 @@ git-commit-ai --co-author "Jane Doe <jane@example.com>"
 git-commit-ai --context "This fixes the login bug reported by QA"
 
 # Use a specific backend
+git-commit-ai --backend llamacpp
 git-commit-ai --backend openai
 git-commit-ai --backend anthropic
 git-commit-ai --backend groq
@@ -134,7 +213,15 @@ git-commit-ai --debug
 # Show current config
 git-commit-ai config
 
-# Create/edit config file
+# Set a config value
+git-commit-ai config --set backend=llamacpp
+git-commit-ai config --set model=gpt-4o
+git-commit-ai config --set temperature=0.5
+
+# List valid config keys
+git-commit-ai config --list-keys
+
+# Create/edit config file manually
 git-commit-ai config --edit
 ```
 
@@ -175,12 +262,19 @@ git-commit-ai hook --remove
 Location: `~/.config/git-commit-ai/config.toml`
 
 ```toml
-# Backend: ollama, openai, anthropic, groq
+# Backend: ollama, llamacpp, openai, anthropic, groq
 backend = "ollama"
 model = "llama3.1:8b"
 ollama_url = "http://localhost:11434"
 temperature = 0.7
 retry_temperatures = [0.5, 0.3, 0.2]
+
+# OpenAI Base URL - change this to use OpenAI-compatible APIs
+# Examples:
+#   - Default OpenAI: https://api.openai.com/v1
+#   - llama.cpp:      http://localhost:8080/v1
+#   - Together AI:    https://api.together.xyz/v1
+openai_base_url = "https://api.openai.com/v1"
 
 # Optional: Ignore files from diff analysis
 ignore_patterns = ["*.lock", "package-lock.json", "*.min.js"]
@@ -207,6 +301,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | Backend | Default Model |
 |---------|---------------|
 | ollama | llama3.1:8b |
+| llamacpp | gpt-4o-mini (alias) |
 | openai | gpt-4o-mini |
 | anthropic | claude-3-haiku-20240307 |
 | groq | llama-3.1-8b-instant |
@@ -232,6 +327,15 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | `--breaking` | Mark as breaking change (adds ! to type) |
 | `--co-author <author>` | Add co-author (can be repeated) |
 
+## Config Commands
+
+| Command | Description |
+|---------|-------------|
+| `config` | Show current configuration |
+| `config --edit` | Create/edit config file manually |
+| `config --set <key=value>` | Set a config value |
+| `config --list-keys` | List all valid config keys |
+
 ## Commit Types (Karma Convention)
 
 | Type | Description |
@@ -250,6 +354,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | Variable | Description |
 |----------|-------------|
 | `OPENAI_API_KEY` | OpenAI API key |
+| `OPENAI_BASE_URL` | OpenAI-compatible API base URL (default: `https://api.openai.com/v1`) |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `GROQ_API_KEY` | Groq API key |
 
