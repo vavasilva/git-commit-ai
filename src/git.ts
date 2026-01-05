@@ -86,10 +86,31 @@ export function getStagedDiff(): DiffResult {
   const filesOutput = runGitSafe("diff", "--cached", "--name-only");
   const files = filesOutput.split("\n").filter((f) => f);
 
+  // Get file status (A=added, D=deleted, M=modified, R=renamed)
+  const statusOutput = runGitSafe("diff", "--cached", "--name-status");
+  const filesAdded: string[] = [];
+  const filesDeleted: string[] = [];
+  const filesModified: string[] = [];
+
+  statusOutput.split("\n").filter((f) => f).forEach((line) => {
+    const [status, ...pathParts] = line.split("\t");
+    const filePath = pathParts.join("\t"); // Handle filenames with tabs
+    if (status.startsWith("A")) {
+      filesAdded.push(filePath);
+    } else if (status.startsWith("D")) {
+      filesDeleted.push(filePath);
+    } else if (status.startsWith("M") || status.startsWith("R")) {
+      filesModified.push(filePath);
+    }
+  });
+
   return {
     diff,
     stats,
     files,
+    filesAdded,
+    filesDeleted,
+    filesModified,
     isEmpty: !diff.trim(),
   };
 }
@@ -99,10 +120,30 @@ export function getFileDiff(filePath: string): DiffResult {
   const stats = runGitSafe("diff", "--cached", "--stat", "--", filePath);
   const files = diff ? [filePath] : [];
 
+  // Get file status for this specific file
+  const statusOutput = runGitSafe("diff", "--cached", "--name-status", "--", filePath);
+  const filesAdded: string[] = [];
+  const filesDeleted: string[] = [];
+  const filesModified: string[] = [];
+
+  if (statusOutput) {
+    const [status] = statusOutput.split("\t");
+    if (status.startsWith("A")) {
+      filesAdded.push(filePath);
+    } else if (status.startsWith("D")) {
+      filesDeleted.push(filePath);
+    } else if (status.startsWith("M") || status.startsWith("R")) {
+      filesModified.push(filePath);
+    }
+  }
+
   return {
     diff,
     stats,
     files,
+    filesAdded,
+    filesDeleted,
+    filesModified,
     isEmpty: !diff.trim(),
   };
 }
@@ -185,10 +226,31 @@ export function getLastCommitDiff(): DiffResult {
   const filesOutput = runGitSafe("diff", "HEAD~1", "HEAD", "--name-only");
   const files = filesOutput.split("\n").filter((f) => f);
 
+  // Get file status for the last commit
+  const statusOutput = runGitSafe("diff", "HEAD~1", "HEAD", "--name-status");
+  const filesAdded: string[] = [];
+  const filesDeleted: string[] = [];
+  const filesModified: string[] = [];
+
+  statusOutput.split("\n").filter((f) => f).forEach((line) => {
+    const [status, ...pathParts] = line.split("\t");
+    const filePath = pathParts.join("\t");
+    if (status.startsWith("A")) {
+      filesAdded.push(filePath);
+    } else if (status.startsWith("D")) {
+      filesDeleted.push(filePath);
+    } else if (status.startsWith("M") || status.startsWith("R")) {
+      filesModified.push(filePath);
+    }
+  });
+
   return {
     diff,
     stats,
     files,
+    filesAdded,
+    filesDeleted,
+    filesModified,
     isEmpty: !diff.trim(),
   };
 }

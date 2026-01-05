@@ -47,7 +47,36 @@ import {
   debugResponse,
   debugValidation,
 } from "./debug.js";
-import type { Config, BackendType } from "./types.js";
+import type { Config, BackendType, DiffResult } from "./types.js";
+
+function buildDiffContext(diffResult: DiffResult): string {
+  const parts: string[] = [];
+
+  if (diffResult.filesAdded.length > 0) {
+    parts.push(`Files added:\n${diffResult.filesAdded.slice(0, 5).join("\n")}`);
+    if (diffResult.filesAdded.length > 5) {
+      parts.push(`  ... and ${diffResult.filesAdded.length - 5} more added`);
+    }
+  }
+
+  if (diffResult.filesDeleted.length > 0) {
+    parts.push(`Files deleted:\n${diffResult.filesDeleted.slice(0, 5).join("\n")}`);
+    if (diffResult.filesDeleted.length > 5) {
+      parts.push(`  ... and ${diffResult.filesDeleted.length - 5} more deleted`);
+    }
+  }
+
+  if (diffResult.filesModified.length > 0) {
+    parts.push(`Files modified:\n${diffResult.filesModified.slice(0, 5).join("\n")}`);
+    if (diffResult.filesModified.length > 5) {
+      parts.push(`  ... and ${diffResult.filesModified.length - 5} more modified`);
+    }
+  }
+
+  parts.push(`Stats: ${diffResult.stats}`);
+
+  return parts.join("\n");
+}
 
 async function promptUser(question: string, choices: string[]): Promise<string> {
   const rl = createInterface({
@@ -235,7 +264,7 @@ async function handleSingleCommit(
   }
 
   debugDiff(diff, diffResult.files);
-  const context = `Files changed:\n${diffResult.files.slice(0, 5).join("\n")}\nStats: ${diffResult.stats}`;
+  const context = buildDiffContext(diffResult);
 
   let message = await runCommitFlow(backend, cfg, diff, context, options.skipConfirm, options.constraints);
 
@@ -322,7 +351,7 @@ async function handleIndividualCommits(
 
     console.log(chalk.bold(`\nProcessing: ${filePath}`));
 
-    const context = `File: ${filePath}\nStats: ${diffResult.stats}`;
+    const context = buildDiffContext(diffResult);
     let message = await runCommitFlow(backend, cfg, diffResult.diff, context, options.skipConfirm, options.constraints);
 
     if (message === null) {
@@ -487,7 +516,7 @@ export function createProgram(): Command {
           diff = filterDiffByPatterns(diff, cfg.ignore_patterns);
         }
 
-        const context = `Files changed:\n${diffResult.files.slice(0, 5).join("\n")}\nStats: ${diffResult.stats}`;
+        const context = buildDiffContext(diffResult);
         const temperatures = [cfg.temperature, ...cfg.retry_temperatures];
         const message = await generateMessage(backend, diff, context, temperatures, constraints);
 
@@ -658,7 +687,7 @@ export function createProgram(): Command {
         console.log(`  ... and ${diffResult.files.length - 10} more`);
       }
 
-      const context = `Files changed: ${diffResult.files.slice(0, 5).join(", ")}\nStats: ${diffResult.stats}`;
+      const context = buildDiffContext(diffResult);
       const prompt = buildSummarizePrompt(diffResult.diff, context);
       debugPrompt(prompt);
 
