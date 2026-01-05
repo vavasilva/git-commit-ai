@@ -30,8 +30,18 @@ Choose at least one backend:
 
 **Ollama (Local, Free)**
 ```bash
+# macOS
 brew install ollama
 brew services start ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+sudo systemctl start ollama
+
+# Windows - download installer from:
+# https://ollama.com/download/windows
+
+# Pull a model (all platforms)
 ollama pull llama3.1:8b
 ```
 
@@ -41,7 +51,17 @@ Run local GGUF models with `llama-server` (auto-detected on port 8080):
 
 ```bash
 # Install llama.cpp
+# macOS
 brew install llama.cpp
+
+# Linux (Ubuntu/Debian) - build from source
+sudo apt install build-essential cmake
+git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build --config Release
+sudo cp build/bin/llama-server /usr/local/bin/
+
+# Windows - download pre-built binaries from:
+# https://github.com/ggml-org/llama.cpp/releases
 
 # Start the server (downloads model automatically from Hugging Face)
 llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF -ngl 99 --port 8080
@@ -56,9 +76,10 @@ git-commit-ai --backend llamacpp
 git-commit-ai config --set backend=llamacpp
 ```
 
-**Run llama-server as a service (macOS)**
+**Run llama-server as a service**
 
-To keep llama-server running automatically:
+<details>
+<summary><strong>macOS (launchd)</strong></summary>
 
 ```bash
 # Create launchd service
@@ -100,6 +121,105 @@ launchctl unload ~/Library/LaunchAgents/com.llamacpp.server.plist
 # Check logs
 tail -f /tmp/llama-server.log
 ```
+
+</details>
+
+<details>
+<summary><strong>Linux (systemd)</strong></summary>
+
+```bash
+# Create systemd service
+sudo cat > /etc/systemd/system/llama-server.service << 'EOF'
+[Unit]
+Description=llama.cpp Server
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+ExecStart=/usr/local/bin/llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF -ngl 99 --port 8080
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/llama-server.log
+StandardError=append:/var/log/llama-server.err
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Replace $USER with your username
+sudo sed -i "s/\$USER/$USER/" /etc/systemd/system/llama-server.service
+
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable llama-server
+sudo systemctl start llama-server
+
+# Check status
+sudo systemctl status llama-server
+
+# View logs
+journalctl -u llama-server -f
+```
+
+</details>
+
+<details>
+<summary><strong>Windows (Task Scheduler)</strong></summary>
+
+**Option 1: PowerShell script with Task Scheduler**
+
+1. Create a startup script `C:\llama-server\start-llama.ps1`:
+```powershell
+# start-llama.ps1
+Start-Process -FilePath "C:\llama-server\llama-server.exe" `
+    -ArgumentList "-hf", "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF", "-ngl", "99", "--port", "8080" `
+    -WindowStyle Hidden `
+    -RedirectStandardOutput "C:\llama-server\llama-server.log" `
+    -RedirectStandardError "C:\llama-server\llama-server.err"
+```
+
+2. Create a scheduled task (run in PowerShell as Administrator):
+```powershell
+$action = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-ExecutionPolicy Bypass -File C:\llama-server\start-llama.ps1"
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType S4U
+Register-ScheduledTask -TaskName "LlamaServer" -Action $action -Trigger $trigger -Principal $principal
+
+# Start immediately
+Start-ScheduledTask -TaskName "LlamaServer"
+
+# Stop the service
+Stop-ScheduledTask -TaskName "LlamaServer"
+
+# Remove the service
+Unregister-ScheduledTask -TaskName "LlamaServer" -Confirm:$false
+```
+
+**Option 2: Using NSSM (Non-Sucking Service Manager)**
+
+```powershell
+# Install NSSM (using chocolatey)
+choco install nssm
+
+# Install llama-server as a Windows service
+nssm install LlamaServer "C:\llama-server\llama-server.exe" "-hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF -ngl 99 --port 8080"
+nssm set LlamaServer AppDirectory "C:\llama-server"
+nssm set LlamaServer AppStdout "C:\llama-server\llama-server.log"
+nssm set LlamaServer AppStderr "C:\llama-server\llama-server.err"
+
+# Start the service
+nssm start LlamaServer
+
+# Stop the service
+nssm stop LlamaServer
+
+# Remove the service
+nssm remove LlamaServer confirm
+```
+
+</details>
 
 **OpenAI**
 ```bash
