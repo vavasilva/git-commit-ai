@@ -96,6 +96,7 @@ describe("saveConfig", () => {
       backend: "ollama",
       model: "test",
       ollama_url: "http://test",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.5,
       retry_temperatures: [0.3],
     });
@@ -110,6 +111,7 @@ describe("saveConfig", () => {
       backend: "openai",
       model: "test-model",
       ollama_url: "http://test:1234",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.5,
       retry_temperatures: [0.4, 0.3],
     });
@@ -139,6 +141,7 @@ describe("showConfig", () => {
       backend: "ollama",
       model: "test-model",
       ollama_url: "http://test:1234",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.5,
       retry_temperatures: [0.4, 0.3],
     });
@@ -156,6 +159,7 @@ describe("showConfig", () => {
       backend: "ollama",
       model: "test-model",
       ollama_url: "http://test:1234",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.5,
       retry_temperatures: [0.4, 0.3],
       ignore_patterns: ["*.lock", "dist/**"],
@@ -173,6 +177,7 @@ describe("showConfig", () => {
       backend: "ollama",
       model: "test-model",
       ollama_url: "http://test:1234",
+      openai_base_url: "https://api.openai.com/v1",
       temperature: 0.5,
       retry_temperatures: [0.4, 0.3],
       default_scope: "api",
