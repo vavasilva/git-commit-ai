@@ -43,20 +43,62 @@ Run local GGUF models with `llama-server` (auto-detected on port 8080):
 # Install llama.cpp
 brew install llama.cpp
 
-# Download a GGUF model (e.g., Qwen2.5-Coder-1.5B with Q4_K_M quantization)
-# From Hugging Face: https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF
-
-# Start the server (port 8080 is auto-detected)
-llama-server -m model.gguf --port 8080
-
-# Or download directly from Hugging Face
-llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF --port 8080
+# Start the server (downloads model automatically from Hugging Face)
+llama-server -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF -ngl 99 --port 8080
 
 # Use with git-commit-ai (auto-detected if running on port 8080)
 git-commit-ai
 
 # Or explicitly use llamacpp backend
 git-commit-ai --backend llamacpp
+
+# Configure as default backend
+git-commit-ai config --set backend=llamacpp
+```
+
+**Run llama-server as a service (macOS)**
+
+To keep llama-server running automatically:
+
+```bash
+# Create launchd service
+cat > ~/Library/LaunchAgents/com.llamacpp.server.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.llamacpp.server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/llama-server</string>
+        <string>-hf</string>
+        <string>Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF</string>
+        <string>-ngl</string>
+        <string>99</string>
+        <string>--port</string>
+        <string>8080</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/llama-server.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/llama-server.err</string>
+</dict>
+</plist>
+EOF
+
+# Start the service
+launchctl load ~/Library/LaunchAgents/com.llamacpp.server.plist
+
+# Stop the service
+launchctl unload ~/Library/LaunchAgents/com.llamacpp.server.plist
+
+# Check logs
+tail -f /tmp/llama-server.log
 ```
 
 **OpenAI**
