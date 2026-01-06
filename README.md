@@ -1,16 +1,49 @@
-# git-commit-ai
+# Git Commit AI — AI commit message generator CLI
 
-> AI-powered commit message generator for Git. Automate your git workflow with intelligent, conventional commit messages.
+[![npm version](https://img.shields.io/npm/v/@vavasilva/git-commit-ai)](https://www.npmjs.com/package/@vavasilva/git-commit-ai)
+[![npm downloads](https://img.shields.io/npm/dm/@vavasilva/git-commit-ai)](https://www.npmjs.com/package/@vavasilva/git-commit-ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A command-line tool that uses Large Language Models (LLMs) to analyze your staged changes and automatically generate [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) / [Conventional Commits](https://www.conventionalcommits.org/) messages.
+> Generate Conventional Commit messages from staged git changes using LLMs (Ollama, llama.cpp, OpenAI, Anthropic, Groq).
 
-**Supported AI backends:** Ollama, llama.cpp, OpenAI (GPT-4), Anthropic (Claude), Groq (LLaMA)
+**git-commit-ai** is a CLI that analyzes your `git diff --staged` and suggests high-quality **Conventional Commits** (`type(scope): subject`) with an interactive confirm/edit/regenerate flow.
+
+**Backends:** Ollama (local), llama.cpp (local), OpenAI (GPT models), Anthropic (Claude), Groq (Llama)
+
+## Quick Start
+
+```bash
+# Install
+npm install -g @vavasilva/git-commit-ai
+
+# 1. Make changes to your code
+echo "console.log('hello')" > hello.js
+
+# 2. Stage your changes
+git add hello.js
+
+# 3. Generate commit message and commit
+git-commit-ai
+
+# Output:
+# 📝 Generated commit message
+#   feat: add hello.js script
+# [C]onfirm  [E]dit  [R]egenerate  [A]bort? c
+# ✓ Committed: feat: add hello.js script
+```
+
+## How it works
+
+1. You stage your changes (`git add ...`)
+2. git-commit-ai reads `git diff --staged`
+3. A selected LLM backend proposes a Conventional Commit message
+4. You confirm, edit, regenerate, or abort (no commit happens until you confirm)
 
 ## Features
 
 - **Multiple Backends** - Ollama (local), llama.cpp (local), OpenAI, Anthropic Claude, Groq
 - **Auto-Detection** - Automatically selects available backend
-- **Karma Convention** - Generates `type(scope): subject` format commits
+- **Conventional Commits** - Generates `type(scope): subject` format (Karma compatible)
 - **Interactive Flow** - Confirm, Edit, Regenerate, or Abort before committing
 - **Individual Commits** - Option to commit each file separately
 - **Dry Run** - Preview messages without committing
@@ -250,25 +283,6 @@ export ANTHROPIC_API_KEY="your-api-key"
 export GROQ_API_KEY="your-api-key"
 ```
 
-## Quick Start
-
-```bash
-# 1. Make changes to your code
-echo "console.log('hello')" > hello.js
-
-# 2. Stage your changes
-git add hello.js
-
-# 3. Generate commit message and commit
-git-commit-ai
-
-# Output:
-# 📝 Generated commit message
-#   feat: add hello.js script
-# [C]onfirm  [E]dit  [R]egenerate  [A]bort? c
-# ✓ Committed: feat: add hello.js script
-```
-
 ## Usage
 
 ```bash
@@ -464,7 +478,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 | `config --set <key=value>` | Set a config value |
 | `config --list-keys` | List all valid config keys |
 
-## Commit Types (Karma Convention)
+## Commit Types (Conventional Commits)
 
 | Type | Description |
 |------|-------------|
