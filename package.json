@@ -1,7 +1,7 @@
 {
   "name": "@vavasilva/git-commit-ai",
   "version": "0.3.1",
-  "description": "Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq)",
+  "description": "AI-powered commit message generator using LLMs (OpenAI GPT-4, Anthropic Claude, Ollama, Groq). Automate git commits with Conventional Commits format.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -35,14 +35,21 @@
     "git",
     "commit",
     "ai",
+    "git-commit-ai",
+    "commit-message-generator",
+    "automation",
     "ollama",
     "openai",
+    "gpt-4",
     "anthropic",
+    "claude",
     "groq",
+    "llama",
     "llm",
     "cli",
     "karma",
-    "conventional-commits"
+    "conventional-commits",
+    "developer-tools"
   ],
   "author": "Wagner Silva",
   "license": "MIT",
