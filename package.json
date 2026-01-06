@@ -1,6 +1,6 @@
 {
   "name": "@vavasilva/git-commit-ai",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "AI-powered commit message generator using LLMs (OpenAI GPT-4, Anthropic Claude, Ollama, Groq). Automate git commits with Conventional Commits format.",
   "type": "module",
   "main": "./dist/index.js",
