@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Commit AI — AI Commit Message Generator CLI</title>
+    <meta name="description" content="CLI that generates Conventional Commit messages from staged git changes using LLMs (OpenAI, Anthropic, Ollama, Groq). Automate your git workflow with AI.">
+    <meta name="keywords" content="git, commit, ai, conventional commits, llm, openai, anthropic, ollama, cli, developer tools">
+    <meta name="author" content="Wagner Silva">
+    <link rel="canonical" href="https://vavasilva.github.io/git-commit-ai/">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Git Commit AI — AI Commit Message Generator CLI">
+    <meta property="og:description" content="Generate Conventional Commit messages from staged git changes using LLMs. Supports OpenAI, Anthropic, Ollama, and Groq.">
+    <meta property="og:url" content="https://vavasilva.github.io/git-commit-ai/">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://vavasilva.github.io/git-commit-ai/og-image.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Git Commit AI — AI Commit Message Generator CLI">
+    <meta name="twitter:description" content="Generate Conventional Commit messages from staged git changes using LLMs.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-green: #3fb950;
+            --accent-blue: #58a6ff;
+            --accent-purple: #a371f7;
+            --border-color: #30363d;
+            --glow-green: rgba(63, 185, 80, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(63, 185, 80, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(63, 185, 80, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .logo-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 100px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(32px, 6vw, 48px);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        h1 .accent {
+            color: var(--accent-green);
+        }
+
+        .tagline {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 32px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-green);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover {
+            background: #46c35a;
+            box-shadow: 0 0 20px var(--glow-green);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+        }
+
+        /* Install command */
+        .install-section {
+            padding: 40px 0;
+        }
+
+        .install-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .install-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f56; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #27ca40; }
+
+        .install-command {
+            padding: 20px 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .install-command code {
+            color: var(--text-primary);
+        }
+
+        .install-command .prompt {
+            color: var(--accent-green);
+        }
+
+        .copy-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        /* Quick Start */
+        .quickstart {
+            padding: 60px 0;
+        }
+
+        .section-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .code-block {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .code-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .code-content {
+            padding: 20px 24px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .code-content .comment {
+            color: var(--text-muted);
+        }
+
+        .code-content .command {
+            color: var(--accent-blue);
+        }
+
+        .code-content .output {
+            color: var(--text-secondary);
+        }
+
+        .code-content .success {
+            color: var(--accent-green);
+        }
+
+        .code-content .prompt {
+            color: var(--accent-purple);
+        }
+
+        /* Features */
+        .features {
+            padding: 60px 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .feature-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Backends */
+        .backends {
+            padding: 60px 0;
+        }
+
+        .backends-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .backend-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 100px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .backend-tag.local {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-green);
+        }
+
+        .footer-copy {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .header-content {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .hero {
+                padding: 60px 0 40px;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+
+            .install-command {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <div class="logo-icon">AI</div>
+                    <span class="logo-text">git-commit-ai</span>
+                </a>
+                <nav class="nav-links">
+                    <a href="https://github.com/vavasilva/git-commit-ai" target="_blank">GitHub</a>
+                    <a href="https://www.npmjs.com/package/@vavasilva/git-commit-ai" target="_blank">npm</a>
+                    <a href="https://github.com/vavasilva/git-commit-ai#readme" target="_blank">Docs</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="badge">
+                    <span class="badge-dot"></span>
+                    Open Source CLI Tool
+                </div>
+                <h1>Git Commit <span class="accent">AI</span></h1>
+                <p class="tagline">
+                    Generate Conventional Commit messages from staged git changes using LLMs.
+                    Supports local models (Ollama, llama.cpp) and cloud APIs (OpenAI, Anthropic, Groq).
+                </p>
+                <div class="cta-buttons">
+                    <a href="#install" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Install
+                    </a>
+                    <a href="https://github.com/vavasilva/git-commit-ai" class="btn btn-secondary" target="_blank">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="install-section" id="install">
+            <div class="container">
+                <div class="install-box">
+                    <div class="install-header">
+                        <span class="terminal-dot red"></span>
+                        <span class="terminal-dot yellow"></span>
+                        <span class="terminal-dot green"></span>
+                    </div>
+                    <div class="install-command">
+                        <code><span class="prompt">$</span> npm install -g @vavasilva/git-commit-ai</code>
+                        <button class="copy-btn" onclick="copyInstall()">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="quickstart">
+            <div class="container">
+                <h2 class="section-title">Quick Start</h2>
+                <p class="section-subtitle">Stage your changes and let AI generate the commit message.</p>
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-title">Terminal</span>
+                    </div>
+                    <div class="code-content">
+<span class="comment"># Make changes to your code</span>
+<span class="command">git add .</span>
+
+<span class="comment"># Generate commit message with AI</span>
+<span class="command">git-commit-ai</span>
+
+<span class="output">📝 Generated commit message</span>
+<span class="output">  feat(auth): add login validation</span>
+
+<span class="prompt">[C]onfirm  [E]dit  [R]egenerate  [A]bort?</span> <span class="command">c</span>
+<span class="success">✓ Committed: feat(auth): add login validation</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="container">
+                <h2 class="section-title">Features</h2>
+                <p class="section-subtitle">Everything you need for smart commit messages.</p>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <h3 class="feature-title">Multiple Backends</h3>
+                        <p class="feature-desc">Local (Ollama, llama.cpp) or cloud (OpenAI, Anthropic, Groq). Your choice.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3 class="feature-title">Conventional Commits</h3>
+                        <p class="feature-desc">Generates type(scope): subject format. Karma compatible.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3 class="feature-title">Interactive Flow</h3>
+                        <p class="feature-desc">Confirm, edit, regenerate, or abort before committing.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔌</div>
+                        <h3 class="feature-title">Git Hook</h3>
+                        <p class="feature-desc">Auto-generate on git commit. Zero friction workflow.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🌍</div>
+                        <h3 class="feature-title">Multi-language</h3>
+                        <p class="feature-desc">Generate messages in English, Portuguese, Spanish, and more.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚙️</div>
+                        <h3 class="feature-title">Configurable</h3>
+                        <p class="feature-desc">Per-project or global config. Set defaults, temperature, and more.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="backends">
+            <div class="container">
+                <h2 class="section-title" style="text-align: center;">Supported Backends</h2>
+                <p class="section-subtitle" style="text-align: center;">Use local models for privacy or cloud APIs for power.</p>
+                <div class="backends-list">
+                    <span class="backend-tag local">🦙 Ollama (local)</span>
+                    <span class="backend-tag local">🔧 llama.cpp (local)</span>
+                    <span class="backend-tag">OpenAI (GPT)</span>
+                    <span class="backend-tag">Anthropic (Claude)</span>
+                    <span class="backend-tag">Groq (Llama)</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/vavasilva/git-commit-ai" target="_blank">GitHub</a>
+                <a href="https://www.npmjs.com/package/@vavasilva/git-commit-ai" target="_blank">npm</a>
+                <a href="https://github.com/vavasilva/git-commit-ai#readme" target="_blank">Documentation</a>
+                <a href="https://github.com/vavasilva/git-commit-ai/issues" target="_blank">Issues</a>
+            </div>
+            <p class="footer-copy">MIT License · Made by <a href="https://github.com/vavasilva" target="_blank" style="color: var(--accent-green);">Wagner Silva</a></p>
+        </div>
+    </footer>
+
+    <script>
+        function copyInstall() {
+            navigator.clipboard.writeText('npm install -g @vavasilva/git-commit-ai');
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+    </script>
+</body>
+</html>

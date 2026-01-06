@@ -1,6 +1,6 @@
 {
   "name": "@vavasilva/git-commit-ai",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "CLI that generates Conventional Commit messages from staged git changes using LLMs (OpenAI, Anthropic, Ollama, Groq).",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,7 +33,7 @@
   "bugs": {
     "url": "https://github.com/vavasilva/git-commit-ai/issues"
   },
-  "homepage": "https://github.com/vavasilva/git-commit-ai#readme",
+  "homepage": "https://vavasilva.github.io/git-commit-ai/",
   "keywords": [
     "git",
     "commit",
