@@ -4,6 +4,8 @@ Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp)
 
 A CLI tool that analyzes your staged changes and generates [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) commit messages using AI.
 
+![git-commit-ai demo](assets/demo.gif)
+
 ## Features
 
 - **Multiple Backends** - Ollama (local), llama.cpp (local), OpenAI, Anthropic Claude, Groq
