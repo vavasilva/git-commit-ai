@@ -1,8 +1,10 @@
 # git-commit-ai
 
-Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp).
+> AI-powered commit message generator for Git. Automate your git workflow with intelligent, conventional commit messages.
 
-A CLI tool that analyzes your staged changes and generates [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) commit messages using AI.
+A command-line tool that uses Large Language Models (LLMs) to analyze your staged changes and automatically generate [Karma-style](https://karma-runner.github.io/6.4/dev/git-commit-msg.html) / [Conventional Commits](https://www.conventionalcommits.org/) messages.
+
+**Supported AI backends:** Ollama, llama.cpp, OpenAI (GPT-4), Anthropic (Claude), Groq (LLaMA)
 
 ## Features
 
