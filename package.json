@@ -1,6 +1,6 @@
 {
   "name": "@vavasilva/git-commit-ai",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq)",
   "type": "module",
   "main": "./dist/index.js",
