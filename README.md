@@ -10,6 +10,8 @@
 
 **Backends:** Ollama (local), llama.cpp (local), OpenAI (GPT models), Anthropic (Claude), Groq (Llama)
 
+![Demo](demo.gif)
+
 ## Quick Start
 
 ```bash
