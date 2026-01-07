@@ -40,3 +40,6 @@ ENV/
 .serena/
 .agent/
 .claude/
+
+# VHS Tape (demo generation)
+demo.tape
