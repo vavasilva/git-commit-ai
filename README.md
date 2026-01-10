@@ -288,9 +288,12 @@ export GROQ_API_KEY="your-api-key"
 ## Usage
 
 ```bash
-# Basic: stage + generate + confirm + commit
-git add .
+# Basic: stage files + generate + confirm + commit
+git add file1.ts file2.ts
 git-commit-ai
+
+# Stage all changes and commit
+git-commit-ai --all
 
 # Auto-commit without confirmation
 git add .
@@ -299,6 +302,9 @@ git-commit-ai -y
 # Commit and push in one command
 git add .
 git-commit-ai --push
+
+# Stage all changes and commit (equivalent to git add . && git-commit-ai)
+git-commit-ai --all
 
 # Commit each modified file separately
 git-commit-ai --individual
@@ -454,6 +460,7 @@ ignore_patterns = ["dist/*", "*.generated.ts"]
 
 | Option | Description |
 |--------|-------------|
+| `-a, --all` | Stage all changes before committing |
 | `-p, --push` | Push after commit |
 | `-y, --yes` | Skip confirmation |
 | `-i, --individual` | Commit files individually |

@@ -409,6 +409,7 @@ export function createProgram(): Command {
     .option("--issue <ref>", "Reference an issue (e.g., 123 or #123)")
     .option("--breaking", "Mark as breaking change (adds ! to type)")
     .option("--co-author <author>", "Add co-author (can be used multiple times)", (val: string, prev: string[]) => prev.concat([val]), [] as string[])
+    .option("-a, --all", "Stage all changes before committing")
     .action(async (options) => {
       if (options.debug) {
         enableDebug();
@@ -537,8 +538,8 @@ export function createProgram(): Command {
         coAuthors: options.coAuthor,
       };
 
-      // Don't stage files if amending
-      if (!options.amend) {
+      // Stage all files only if --all flag is used
+      if (options.all && !options.amend) {
         addFiles(".");
       }
 
