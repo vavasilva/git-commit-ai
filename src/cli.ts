@@ -2,6 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import ora from "ora";
 import { createInterface } from "node:readline";
+import { createRequire } from "node:module";
 
 import { loadConfig, saveConfig, showConfig, getConfigPath, updateConfig, VALID_CONFIG_KEYS, CONFIG_ALIASES } from "./config.js";
 import {
@@ -386,12 +387,15 @@ async function handleIndividualCommits(
 }
 
 export function createProgram(): Command {
+  const require = createRequire(import.meta.url);
+  const pkg = require("../package.json");
+
   const program = new Command();
 
   program
     .name("git-commit-ai")
     .description("Generate commit messages using LLMs (Ollama, OpenAI, Anthropic, Groq, llama.cpp)")
-    .version("0.3.0")
+    .version(pkg.version)
     .option("-p, --push", "Push after commit")
     .option("-y, --yes", "Skip confirmation")
     .option("-i, --individual", "Commit files individually")
